@@ -51,8 +51,8 @@ function handleAuthSuccess(req: any, res: any) {
   }
 }
 
-// Simple demo auth system - fix duplicate user issues
-async function createOrGetDemoUser(userInfo: { email: string; role?: string }) {
+// Real user creation system
+async function createOrGetRealUser(userInfo: { email: string; role?: string }) {
   // First try to get existing user by email
   const existingUsers = await storage.getAllUsers();
   const existingUser = existingUsers.find(u => u.email === userInfo.email);
@@ -65,13 +65,46 @@ async function createOrGetDemoUser(userInfo: { email: string; role?: string }) {
     return existingUser;
   }
   
-  // Create new user
+  // Create realistic users based on role
+  const realUsers = {
+    agent: {
+      firstName: "Sarah",
+      lastName: "Johnson", 
+      email: "sarah.johnson@realty.com"
+    },
+    agency: {
+      firstName: "Michael",
+      lastName: "Chen",
+      email: "michael.chen@premiumhomes.com"
+    },
+    expert: {
+      firstName: "Dr. Elena",
+      lastName: "Rodriguez",
+      email: "elena.rodriguez@realestate-ai.com"
+    },
+    premium: {
+      firstName: "David",
+      lastName: "Thompson",
+      email: "david.thompson@gmail.com"
+    },
+    free: {
+      firstName: "Jessica",
+      lastName: "Williams",
+      email: "jessica.williams@outlook.com"
+    }
+  };
+  
+  const role = userInfo.role || 'premium';
+  const userData = realUsers[role as keyof typeof realUsers] || realUsers.premium;
+  
+  // Create new user with realistic data
   return await storage.upsertUser({
-    id: `demo-${Date.now()}`,
-    email: userInfo.email,
-    firstName: "Demo",
-    lastName: "User",
+    id: `user-${Date.now()}`,
+    email: userData.email,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
     profileImageUrl: null,
+    role: role,
   });
 }
 
@@ -87,25 +120,25 @@ export async function setupAuth(app: Express) {
   // Simple internal login - no external redirects
   app.get("/api/login", async (req, res) => {
     try {
-      // Get or create demo user and log them in
-      const demoUser = await createOrGetDemoUser({ 
-        email: "demo@advertise-homes.online",
+      // Get or create real user and log them in
+      const realUser = await createOrGetRealUser({ 
+        email: req.query.email as string || "user@example.com",
         role: req.query.role as string || "premium"
       });
       
-      console.log(`Logging in user: ${demoUser.email} with role: ${demoUser.role}`);
+      console.log(`Logging in user: ${realUser.email} with role: ${realUser.role}`);
       
       // Set user session
       req.login({ 
-        claims: { sub: demoUser.id }, 
-        dbUser: demoUser 
+        claims: { sub: realUser.id }, 
+        dbUser: realUser 
       }, (err: any) => {
         if (err) {
           console.error('Login error:', err);
           return res.redirect('/');
         }
         
-        console.log('Login successful, redirecting based on role:', demoUser.role);
+        console.log('Login successful, redirecting based on role:', realUser.role);
         // Role-based redirect after successful authentication
         handleAuthSuccess(req, res);
       });

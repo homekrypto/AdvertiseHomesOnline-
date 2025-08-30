@@ -1,0 +1,93 @@
+Step 1 — Create a Real Test User
+
+Go to the registration page → create a new account with your actual name.
+
+Confirm email and log in.
+
+Optional: Set up 2FA to test full security flow.
+
+Verify that the dashboard greeting now shows your real name, not “Demo.”
+
+✅ Outcome: No more “Welcome back, Demo!” placeholder.
+
+Step 2 — Populate Properties Table
+
+Log in as Agent/Agency (must have a plan that allows property creation).
+
+Navigate to “Add Property” in dashboard.
+
+Fill in all required fields:
+
+Title / Address / City / ZIP
+
+Price / Bedrooms / Bathrooms / Area
+
+Upload real media (images, videos) → S3 + CloudFront integration.
+
+Submit → check database (PostgreSQL/DynamoDB) → property should now exist.
+
+✅ Outcome: Dashboard shows actual property; frontend pulls live data from database, no placeholders.
+
+Step 3 — Test Feature Flags & Plan Limits
+
+Verify that the property count respects your subscription tier (e.g., Agent: max 5 properties).
+
+Test additional plan features:
+
+Featured listing placement (consume credits)
+
+Bulk CSV import (Agency plan)
+
+AI pricing suggestions (Expert plan)
+
+✅ Outcome: All plan restrictions and premium features work with live data.
+
+Step 4 — Verify End-to-End Integration
+
+Log out → log in as different user roles (Free, Premium, Agent, Agency, Expert).
+
+Ensure dashboards, API endpoints, and property listings fetch live data correctly.
+
+Check:
+
+CRUD for properties
+
+Saved searches / favorites
+
+Alerts / notifications
+
+Real-time analytics & leads
+
+✅ Outcome: Confirms frontend ↔ backend ↔ database integration works fully.
+
+Step 5 — Test Stripe & Payments
+
+Subscribe a user to a paid plan (Stripe test mode).
+
+Verify subscription creation API, webhooks, and real-time feature flag updates.
+
+Ensure plan upgrade/downgrade reflects correctly in dashboard and backend.
+
+✅ Outcome: Payment & subscription logic fully live.
+
+Step 6 — Populate Admin & Analytics Data
+
+Log in as Super Admin → check all user accounts and properties.
+
+Test analytics dashboards (revenue, leads, property performance).
+
+Add dummy metrics if needed to visualize functionality — this is real backend data, not mock/frontend placeholders.
+
+✅ Outcome: Admin dashboards functional with live data.
+
+Step 7 — Continuous End-to-End Testing
+
+Repeat login → add property → verify database → dashboard → frontend API call → leads/notifications.
+
+Each task in the TODO plan should be verified live, no mock data, all connections active.
+
+Once these steps are complete:
+
+The platform will feel real, not like a demo.
+
+You can continue the TODO plan without stress, ensuring every function is fully integrated end-to-end.
