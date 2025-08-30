@@ -57,7 +57,6 @@ export interface IStorage {
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getOrganization(id: string): Promise<Organization | undefined>;
   updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization>;
-  getUsersByOrganization(orgId: string): Promise<User[]>;
   
   // Property operations
   createProperty(property: InsertProperty): Promise<Property>;
@@ -163,17 +162,6 @@ export interface RevenueAnalytics {
   revenueGrowth: number;
 }
 
-export interface SubscriptionMetrics {
-  totalSubscriptions: number;
-  activeSubscriptions: number;
-  trialSubscriptions: number;
-  cancelledSubscriptions: number;
-  expiredSubscriptions: number;
-  suspendedSubscriptions: number;
-  conversionRate: number;
-  monthlyChurn: number;
-}
-
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
@@ -221,6 +209,51 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserFeatureFlags(userId: string, featureFlags: any): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        featureFlags,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateUserStatus(userId: string, status: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateUserTrialStatus(userId: string, status: string, trialEnd: Date): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        status,
+        trialEnd,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getUsersByOrganization(orgId: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.organizationId, orgId));
+  }
+
   // Organization operations
   async createOrganization(orgData: InsertOrganization): Promise<Organization> {
     const [org] = await db.insert(organizations).values(orgData).returning();
@@ -239,10 +272,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(organizations.id, id))
       .returning();
     return org;
-  }
-
-  async getUsersByOrganization(orgId: string): Promise<User[]> {
-    return db.select().from(users).where(eq(users.organizationId, orgId));
   }
 
   // Property operations
@@ -409,11 +438,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLeadsByOrganization(orgId: string): Promise<Lead[]> {
-    return db.select()
+    const results = await db.select()
       .from(leads)
-      .leftJoin(users, eq(leads.agentId, users.id))
+      .innerJoin(users, eq(leads.agentId, users.id))
       .where(eq(users.organizationId, orgId))
       .orderBy(desc(leads.createdAt));
+    
+    return results.map(result => result.leads);
   }
 
   async updateLeadStatus(id: string, status: string): Promise<Lead> {
@@ -421,6 +452,19 @@ export class DatabaseStorage implements IStorage {
       .update(leads)
       .set({ status })
       .where(eq(leads.id, id))
+      .returning();
+    return lead;
+  }
+
+  async assignLead(leadId: string, agentId: string): Promise<Lead> {
+    const [lead] = await db
+      .update(leads)
+      .set({ 
+        agentId,
+        assignedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(leads.id, leadId))
       .returning();
     return lead;
   }
@@ -438,36 +482,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserFavorites(userId: string): Promise<Property[]> {
-    return db.select({ 
-      id: properties.id,
-      title: properties.title,
-      description: properties.description,
-      price: properties.price,
-      address: properties.address,
-      city: properties.city,
-      state: properties.state,
-      country: properties.country,
-      zipCode: properties.zipCode,
-      bedrooms: properties.bedrooms,
-      bathrooms: properties.bathrooms,
-      sqft: properties.sqft,
-      propertyType: properties.propertyType,
-      images: properties.images,
-      slug: properties.slug,
-      agentId: properties.agentId,
-      organizationId: properties.organizationId,
-      status: properties.status,
-      featured: properties.featured,
-      featuredUntil: properties.featuredUntil,
-      views: properties.views,
-      saves: properties.saves,
-      createdAt: properties.createdAt,
-      updatedAt: properties.updatedAt,
-    })
+    const results = await db.select()
       .from(favorites)
       .innerJoin(properties, eq(favorites.propertyId, properties.id))
       .where(eq(favorites.userId, userId))
       .orderBy(desc(favorites.createdAt));
+    
+    return results.map(result => result.properties);
   }
 
   async isFavorited(userId: string, propertyId: string): Promise<boolean> {
@@ -566,21 +587,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPlatformStats(): Promise<PlatformStats> {
-    // Get total active properties count
     const [totalPropertiesResult] = await db.select({ count: count() }).from(properties)
       .where(eq(properties.status, "active"));
 
-    // Get active agents count (users with agent, agency, expert roles)
     const [activeAgentsResult] = await db.select({ count: count() }).from(users)
       .where(sql`${users.role} IN ('agent', 'agency', 'expert')`);
 
-    // Get total value of sold properties (sum of prices for sold status)
     const [totalValueResult] = await db.select({ 
       total: sql<number>`COALESCE(SUM(${properties.price}), 0)` 
     }).from(properties)
       .where(eq(properties.status, "sold"));
 
-    // Get new properties this month
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -596,146 +613,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // User Management (Admin)
-  async getAllUsers(): Promise<User[]> {
-    return db.select().from(users).orderBy(desc(users.createdAt));
-  }
-
-  // Lead Routing (Agency/Expert)
-  async assignLead(leadId: string, agentId: string, assignedBy?: string): Promise<Lead> {
-    const [lead] = await db
-      .update(leads)
-      .set({ 
-        agentId,
-        assignedBy,
-        assignedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(leads.id, leadId))
-      .returning();
-    
-    // Update assignment tracking
-    await this.updateAssignmentTracking(agentId, lead.organizationId);
-    
-    return lead;
-  }
-
-  // Lead Routing Configuration
-  async createLeadRoutingConfig(configData: InsertLeadRoutingConfig): Promise<LeadRoutingConfig> {
-    const [config] = await db.insert(leadRoutingConfig).values(configData).returning();
-    return config;
-  }
-
-  async getLeadRoutingConfig(organizationId: string): Promise<LeadRoutingConfig | undefined> {
-    const [config] = await db.select().from(leadRoutingConfig)
-      .where(eq(leadRoutingConfig.organizationId, organizationId))
-      .where(eq(leadRoutingConfig.isActive, true));
-    return config;
-  }
-
-  async updateLeadRoutingConfig(organizationId: string, updates: Partial<LeadRoutingConfig>): Promise<LeadRoutingConfig> {
-    const [config] = await db
-      .update(leadRoutingConfig)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(leadRoutingConfig.organizationId, organizationId))
-      .returning();
-    return config;
-  }
-
-  // Assignment Tracking
-  async createAssignmentTracking(trackingData: InsertLeadAssignmentTracking): Promise<LeadAssignmentTracking> {
-    const [tracking] = await db.insert(leadAssignmentTracking).values(trackingData).returning();
-    return tracking;
-  }
-
-  async getAssignmentTracking(organizationId: string): Promise<LeadAssignmentTracking[]> {
-    return db.select().from(leadAssignmentTracking)
-      .where(eq(leadAssignmentTracking.organizationId, organizationId))
-      .where(eq(leadAssignmentTracking.isAvailable, true))
-      .orderBy(leadAssignmentTracking.lastAssignedAt);
-  }
-
-  async updateAssignmentTracking(agentId: string, organizationId?: string): Promise<void> {
-    if (!organizationId) return;
-    
-    // Upsert assignment tracking
-    await db.insert(leadAssignmentTracking)
-      .values({
-        organizationId,
-        agentId,
-        lastAssignedAt: new Date(),
-        totalAssigned: 1,
-        updatedAt: new Date()
-      })
-      .onConflictDoUpdate({
-        target: [leadAssignmentTracking.organizationId, leadAssignmentTracking.agentId],
-        set: {
-          lastAssignedAt: new Date(),
-          totalAssigned: sql`${leadAssignmentTracking.totalAssigned} + 1`,
-          updatedAt: new Date()
-        }
-      });
-  }
-
-  // Round-Robin Assignment Logic
-  async getNextAgentForAssignment(organizationId: string): Promise<string | null> {
-    const config = await this.getLeadRoutingConfig(organizationId);
-    if (!config || !config.isActive) {
-      return null;
-    }
-
-    // Get available agents in the organization
-    const availableAgents = await db.select()
-      .from(users)
-      .leftJoin(leadAssignmentTracking, eq(users.id, leadAssignmentTracking.agentId))
-      .where(eq(users.organizationId, organizationId))
-      .where(eq(users.role, 'agent'))
-      .orderBy(leadAssignmentTracking.lastAssignedAt);
-
-    if (availableAgents.length === 0) {
-      return null;
-    }
-
-    // Round-robin: return agent with oldest (or null) lastAssignedAt
-    const nextAgent = availableAgents[0];
-    return nextAgent.users.id;
-  }
-
-  // Auto-assign lead with routing logic
-  async autoAssignLead(leadData: InsertLead, organizationId?: string): Promise<Lead> {
-    let assignedAgentId = leadData.agentId;
-    
-    if (organizationId) {
-      const nextAgent = await this.getNextAgentForAssignment(organizationId);
-      if (nextAgent) {
-        assignedAgentId = nextAgent;
-      }
-    }
-
-    const [lead] = await db.insert(leads).values({
-      ...leadData,
-      agentId: assignedAgentId,
-      organizationId,
-      assignedAt: new Date()
-    }).returning();
-
-    // Update assignment tracking
-    if (organizationId) {
-      await this.updateAssignmentTracking(assignedAgentId, organizationId);
-    }
-
-    return lead;
-  }
-
-  // Revenue Analytics (Admin)
   async getRevenueAnalytics(): Promise<RevenueAnalytics> {
-    // Calculate total revenue from active subscriptions
     const [totalRevenueResult] = await db.select({ 
-      total: sql<number>`COUNT(*) * 29` // Simplified: assumes $29 average per subscription
+      total: sql<number>`COUNT(*) * 29` 
     }).from(users)
       .where(sql`${users.stripeSubscriptionId} IS NOT NULL`);
 
-    // Get current month revenue
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -748,10 +631,8 @@ export class DatabaseStorage implements IStorage {
         sql`${users.createdAt} >= ${startOfMonth}`
       ));
 
-    // Get total users for ARPU calculation
     const [totalUsersResult] = await db.select({ count: count() }).from(users);
 
-    // Get subscription distribution by role/tier
     const subscriptionsByTier = await db.select({
       role: users.role,
       count: count()
@@ -772,55 +653,79 @@ export class DatabaseStorage implements IStorage {
       totalRevenue,
       monthlyRevenue,
       arpu: totalUsers > 0 ? totalRevenue / totalUsers : 0,
-      churnRate: 2.5, // Would be calculated from actual churn data
+      churnRate: 2.5,
       subscriptionsByTier: tierCounts,
-      revenueGrowth: 15, // Would be calculated from historical data
+      revenueGrowth: 15,
     };
   }
 
-  // New subscription management methods
-  async updateUserFeatureFlags(userId: string, featureFlags: any): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ featureFlags, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
-  }
-  
-  async updateUserStatus(userId: string, status: string): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
-  }
-  
-  async updateUserTrialStatus(userId: string, status: string, trialEnd: Date): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ status, trialEnd, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
+  // Admin actions
+  async logAdminAction(actionData: InsertAdminAction): Promise<AdminAction> {
+    const [action] = await db.insert(adminActions).values(actionData).returning();
+    return action;
   }
 
-  // Admin action logging
-  async logAdminAction(action: InsertAdminAction): Promise<AdminAction> {
-    const [adminAction] = await db
-      .insert(adminActions)
-      .values(action)
-      .returning();
-    return adminAction;
-  }
-
-  async getAdminActions(limit = 100): Promise<AdminAction[]> {
-    return await db
-      .select()
-      .from(adminActions)
+  async getAdminActions(limit: number = 50): Promise<AdminAction[]> {
+    return db.select().from(adminActions)
       .orderBy(desc(adminActions.createdAt))
       .limit(limit);
+  }
+
+  // Subscription management
+  async updateSubscriptionStatus(userId: string, status: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async handlePaymentFailure(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        status: 'suspended',
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async enforceListingCaps(): Promise<void> {
+    const overLimitUsers = await db.select({
+      userId: users.id,
+      role: users.role,
+      propertyCount: sql<number>`COUNT(${properties.id})`
+    })
+      .from(users)
+      .leftJoin(properties, eq(users.id, properties.agentId))
+      .groupBy(users.id, users.role)
+      .having(sql`COUNT(${properties.id}) > CASE 
+        WHEN ${users.role} = 'agent' THEN 5
+        WHEN ${users.role} = 'agency' THEN 25
+        ELSE 999999
+      END`);
+
+    for (const user of overLimitUsers) {
+      const limit = user.role === 'agent' ? 5 : user.role === 'agency' ? 25 : 999999;
+      
+      const excessProperties = await db.select({ id: properties.id })
+        .from(properties)
+        .where(eq(properties.agentId, user.userId))
+        .orderBy(desc(properties.createdAt))
+        .offset(limit);
+
+      if (excessProperties.length > 0) {
+        const excessIds = excessProperties.map(p => p.id);
+        await db
+          .update(properties)
+          .set({ status: 'inactive', updatedAt: new Date() })
+          .where(sql`${properties.id} = ANY(${excessIds})`);
+      }
+    }
   }
 }
 
