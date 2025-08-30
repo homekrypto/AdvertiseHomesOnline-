@@ -36,18 +36,24 @@ function handleAuthSuccess(req: any, res: any) {
   const role = user.dbUser.role;
   console.log(`Redirecting user with role: ${role}`);
 
+  const redirectUrl = getRedirectUrl(role);
+  return res.redirect(redirectUrl);
+}
+
+// Get redirect URL based on role
+function getRedirectUrl(role: string): string {
   switch (role) {
     case 'agent':
-      return res.redirect('/agent/dashboard');
+      return '/agent/dashboard';
     case 'agency':
-      return res.redirect('/admin/dashboard');
+      return '/admin/dashboard';
     case 'expert':
-      return res.redirect('/admin/comprehensive');
+      return '/admin/comprehensive';
     case 'premium':
     case 'registered':
     case 'free':
     default:
-      return res.redirect('/');
+      return '/';
   }
 }
 
@@ -117,7 +123,95 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: any, cb) => cb(null, user));
   passport.deserializeUser((user: any, cb) => cb(null, user));
 
-  // Simple internal login - no external redirects
+  // User registration endpoint
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { email, firstName, lastName, password, role = "free" } = req.body;
+      
+      if (!email || !firstName || !lastName) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "User already exists" });
+      }
+      
+      // Create new user
+      const newUser = await storage.upsertUser({
+        email,
+        firstName,
+        lastName,
+        role,
+        status: "active",
+        profileImageUrl: null,
+      });
+      
+      console.log(`New user registered: ${newUser.email} with role: ${newUser.role}`);
+      
+      // Auto-login after registration
+      req.login({ 
+        claims: { sub: newUser.id }, 
+        dbUser: newUser 
+      }, (err: any) => {
+        if (err) {
+          console.error('Auto-login error:', err);
+          return res.status(500).json({ error: "Registration succeeded but login failed" });
+        }
+        
+        res.json({ 
+          message: "Registration successful", 
+          user: newUser,
+          redirectUrl: getRedirectUrl(newUser.role)
+        });
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // User login endpoint
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email required" });
+      }
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      console.log(`User login: ${user.email} with role: ${user.role}`);
+      
+      // Set user session
+      req.login({ 
+        claims: { sub: user.id }, 
+        dbUser: user 
+      }, (err: any) => {
+        if (err) {
+          console.error('Login error:', err);
+          return res.status(500).json({ error: "Login failed" });
+        }
+        
+        res.json({ 
+          message: "Login successful", 
+          user: user,
+          redirectUrl: getRedirectUrl(user.role)
+        });
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // Demo login for testing (temporary)
   app.get("/api/login", async (req, res) => {
     try {
       // Get or create real user and log them in
@@ -126,7 +220,7 @@ export async function setupAuth(app: Express) {
         role: req.query.role as string || "premium"
       });
       
-      console.log(`Logging in user: ${realUser.email} with role: ${realUser.role}`);
+      console.log(`Demo login: ${realUser.email} with role: ${realUser.role}`);
       
       // Set user session
       req.login({ 
