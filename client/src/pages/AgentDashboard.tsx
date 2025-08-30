@@ -66,6 +66,22 @@ export default function AgentDashboard() {
     enabled: !!user,
   });
 
+  const { data: leads, isLoading: leadsLoading } = useQuery({
+    queryKey: ["/api/leads"],
+    enabled: !!user && ['agent', 'agency', 'expert', 'admin'].includes(user?.role || ''),
+  });
+
+  const { data: teamMembers, isLoading: teamLoading } = useQuery({
+    queryKey: ["/api/organizations", user?.organizationId, "members"],
+    queryFn: async () => {
+      if (!user?.organizationId) return [];
+      const response = await fetch(`/api/organizations/${user.organizationId}/members`);
+      if (!response.ok) throw new Error('Failed to fetch team members');
+      return response.json();
+    },
+    enabled: !!user?.organizationId && ['agency', 'expert'].includes(user?.role || ''),
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -210,6 +226,122 @@ export default function AgentDashboard() {
               </Card>
             </div>
             
+            {/* Lead Management Section */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Lead Inbox</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {leadsLoading ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="flex items-center p-4 border rounded-lg animate-pulse">
+                        <div className="w-12 h-12 bg-muted rounded-full mr-4"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-muted rounded mb-2"></div>
+                          <div className="h-3 bg-muted rounded w-3/4"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : leads && leads.length > 0 ? (
+                  <div className="space-y-4">
+                    {leads.slice(0, 5).map((lead: any) => (
+                      <div key={lead.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`lead-${lead.id}`}>
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                            <span className="text-primary-foreground font-semibold">
+                              {lead.name?.charAt(0)?.toUpperCase() || 'L'}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-semibold">{lead.name}</div>
+                            <div className="text-sm text-muted-foreground">{lead.email}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {lead.message && lead.message.length > 50 
+                                ? `${lead.message.substring(0, 50)}...` 
+                                : lead.message
+                              }
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Badge variant={lead.status === 'new' ? 'default' : 'secondary'}>
+                            {lead.status}
+                          </Badge>
+                          <Button size="sm" variant="outline" data-testid={`contact-lead-${lead.id}`}>
+                            Contact
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {leads.length > 5 && (
+                      <div className="text-center pt-4">
+                        <Button variant="outline" data-testid="view-all-leads">
+                          View All {leads.length} Leads
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Inbox className="h-12 w-12 mx-auto mb-4" />
+                    <div>No leads yet</div>
+                    <div className="text-sm">New leads will appear here</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Team Management (Agency/Expert Only) */}
+            {user?.organizationId && ['agency', 'expert'].includes(user?.role || '') && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle>Team Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {teamLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                    </div>
+                  ) : teamMembers && teamMembers.length > 0 ? (
+                    <div className="space-y-4">
+                      {teamMembers.map((member: any) => (
+                        <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`team-member-${member.id}`}>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                              <span className="text-primary-foreground font-semibold">
+                                {(member.firstName?.[0] || member.email?.[0] || 'T').toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="font-medium">
+                                {member.firstName && member.lastName ? 
+                                  `${member.firstName} ${member.lastName}` : 
+                                  member.email || 'Team Member'
+                                }
+                              </div>
+                              <div className="text-sm text-muted-foreground">{member.email}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Badge variant="secondary">{member.role}</Badge>
+                            <Button size="sm" variant="outline" data-testid={`assign-leads-${member.id}`}>
+                              Assign Leads
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div>No team members yet</div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Listings Management */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">

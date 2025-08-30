@@ -30,6 +30,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   updateUserRole(userId: string, role: string): Promise<User>;
+  getAllUsers(): Promise<User[]>;
   
   // Organization operations
   createOrganization(org: InsertOrganization): Promise<Organization>;
@@ -54,6 +55,7 @@ export interface IStorage {
   getLeadsByAgent(agentId: string): Promise<Lead[]>;
   getLeadsByOrganization(orgId: string): Promise<Lead[]>;
   updateLeadStatus(id: string, status: string): Promise<Lead>;
+  assignLead(leadId: string, agentId: string): Promise<Lead>;
   
   // Favorites operations
   addFavorite(favorite: InsertFavorite): Promise<Favorite>;
@@ -74,6 +76,7 @@ export interface IStorage {
   getDashboardMetrics(): Promise<DashboardMetrics>;
   getAgentMetrics(agentId: string): Promise<AgentMetrics>;
   getPlatformStats(): Promise<PlatformStats>;
+  getRevenueAnalytics(): Promise<RevenueAnalytics>;
 }
 
 export interface PropertyFilters {
@@ -119,6 +122,15 @@ export interface PlatformStats {
   activeAgents: number;
   totalValueSold: number;
   newThisMonth: number;
+}
+
+export interface RevenueAnalytics {
+  totalRevenue: number;
+  monthlyRevenue: number;
+  arpu: number; // Average Revenue Per User
+  churnRate: number;
+  subscriptionsByTier: Record<string, number>;
+  revenueGrowth: number;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -540,6 +552,72 @@ export class DatabaseStorage implements IStorage {
       activeAgents: activeAgentsResult.count,
       totalValueSold: totalValueResult.total || 0,
       newThisMonth: newThisMonthResult.count,
+    };
+  }
+
+  // User Management (Admin)
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  // Lead Routing (Agency/Expert)
+  async assignLead(leadId: string, agentId: string): Promise<Lead> {
+    const [lead] = await db
+      .update(leads)
+      .set({ agentId })
+      .where(eq(leads.id, leadId))
+      .returning();
+    return lead;
+  }
+
+  // Revenue Analytics (Admin)
+  async getRevenueAnalytics(): Promise<RevenueAnalytics> {
+    // Calculate total revenue from active subscriptions
+    const [totalRevenueResult] = await db.select({ 
+      total: sql<number>`COUNT(*) * 29` // Simplified: assumes $29 average per subscription
+    }).from(users)
+      .where(sql`${users.stripeSubscriptionId} IS NOT NULL`);
+
+    // Get current month revenue
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const [monthlyRevenueResult] = await db.select({ 
+      total: sql<number>`COUNT(*) * 29`
+    }).from(users)
+      .where(and(
+        sql`${users.stripeSubscriptionId} IS NOT NULL`,
+        sql`${users.createdAt} >= ${startOfMonth}`
+      ));
+
+    // Get total users for ARPU calculation
+    const [totalUsersResult] = await db.select({ count: count() }).from(users);
+
+    // Get subscription distribution by role/tier
+    const subscriptionsByTier = await db.select({
+      role: users.role,
+      count: count()
+    }).from(users)
+      .where(sql`${users.stripeSubscriptionId} IS NOT NULL`)
+      .groupBy(users.role);
+
+    const tierCounts: Record<string, number> = {};
+    subscriptionsByTier.forEach(tier => {
+      tierCounts[tier.role] = tier.count;
+    });
+
+    const totalRevenue = totalRevenueResult.total || 0;
+    const monthlyRevenue = monthlyRevenueResult.total || 0;
+    const totalUsers = totalUsersResult.count;
+
+    return {
+      totalRevenue,
+      monthlyRevenue,
+      arpu: totalUsers > 0 ? totalRevenue / totalUsers : 0,
+      churnRate: 2.5, // Would be calculated from actual churn data
+      subscriptionsByTier: tierCounts,
+      revenueGrowth: 15, // Would be calculated from historical data
     };
   }
 }

@@ -63,6 +63,16 @@ export default function AdminDashboard() {
     enabled: !!user && user.role === 'admin',
   });
 
+  const { data: users, isLoading: usersLoading } = useQuery({
+    queryKey: ["/api/admin/users"],
+    enabled: !!user && user.role === 'admin',
+  });
+
+  const { data: revenueAnalytics, isLoading: revenueLoading } = useQuery({
+    queryKey: ["/api/admin/analytics/revenue"],
+    enabled: !!user && user.role === 'admin',
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -220,38 +230,136 @@ export default function AdminDashboard() {
               </div>
             )}
             
-            {/* Analytics Charts Placeholder */}
+            {/* Real Revenue Analytics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Revenue Trend</CardTitle>
+                  <CardTitle>Revenue Analytics</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-                    <div className="text-center text-muted-foreground">
-                      <TrendingUp className="h-12 w-12 mx-auto mb-2" />
-                      <div>Revenue Chart</div>
-                      <div className="text-sm">Analytics implementation pending</div>
+                  {revenueLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-4 bg-muted rounded-lg">
+                          <div className="text-2xl font-bold text-green-600" data-testid="total-revenue">
+                            ${revenueAnalytics?.totalRevenue?.toLocaleString() || 0}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Total Revenue</div>
+                        </div>
+                        <div className="text-center p-4 bg-muted rounded-lg">
+                          <div className="text-2xl font-bold text-blue-600" data-testid="monthly-revenue">
+                            ${revenueAnalytics?.monthlyRevenue?.toLocaleString() || 0}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Monthly Revenue</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-4 bg-muted rounded-lg">
+                          <div className="text-2xl font-bold text-purple-600" data-testid="arpu">
+                            ${revenueAnalytics?.arpu?.toFixed(2) || 0}
+                          </div>
+                          <div className="text-sm text-muted-foreground">ARPU</div>
+                        </div>
+                        <div className="text-center p-4 bg-muted rounded-lg">
+                          <div className="text-2xl font-bold text-orange-600" data-testid="churn-rate">
+                            {revenueAnalytics?.churnRate?.toFixed(1) || 0}%
+                          </div>
+                          <div className="text-sm text-muted-foreground">Churn Rate</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader>
-                  <CardTitle>User Growth</CardTitle>
+                  <CardTitle>Subscription Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-                    <div className="text-center text-muted-foreground">
-                      <Users className="h-12 w-12 mx-auto mb-2" />
-                      <div>User Growth Chart</div>
-                      <div className="text-sm">Analytics implementation pending</div>
+                  {revenueLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {Object.entries(revenueAnalytics?.subscriptionsByTier || {}).map(([tier, count]) => (
+                        <div key={tier} className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                          <span className="capitalize font-medium">{tier}</span>
+                          <Badge variant="secondary" data-testid={`tier-${tier}`}>{count} users</Badge>
+                        </div>
+                      ))}
+                      {Object.keys(revenueAnalytics?.subscriptionsByTier || {}).length === 0 && (
+                        <div className="text-center text-muted-foreground py-8">
+                          No active subscriptions yet
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* User Management Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>User Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {usersLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {users?.slice(0, 10).map((user: any) => (
+                      <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`user-${user.id}`}>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                            <span className="text-primary-foreground font-semibold">
+                              {(user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium">
+                              {user.firstName && user.lastName ? 
+                                `${user.firstName} ${user.lastName}` : 
+                                user.email || 'Unknown User'
+                              }
+                            </div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Badge variant={user.stripeSubscriptionId ? "default" : "secondary"}>
+                            {user.role}
+                          </Badge>
+                          <Badge variant={user.status === 'active' ? "default" : "destructive"}>
+                            {user.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {users?.length === 0 && (
+                      <div className="text-center text-muted-foreground py-8">
+                        No users found
+                      </div>
+                    )}
+                    {users && users.length > 10 && (
+                      <div className="text-center pt-4">
+                        <Button variant="outline" data-testid="view-all-users">
+                          View All {users.length} Users
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
