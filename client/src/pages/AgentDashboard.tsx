@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { Property } from "@shared/schema";
-import { Home, Eye, Mail, Star, Plus, Settings, BarChart3, Inbox, Users, Route } from "lucide-react";
+import { Home, Eye, Mail, Star, Plus, Settings, BarChart3, Inbox, Users, Route, TrendingUp } from "lucide-react";
 import { UsageTracker } from "@/components/UsageTracker";
 import { LeadRoutingDashboard } from "@/components/LeadRoutingDashboard";
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AgentMetrics {
@@ -118,10 +119,14 @@ export default function AgentDashboard() {
         {isAgencyOrExpert ? (
           // Agency/Expert Dashboard with tabs
           <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="grid w-full grid-cols-3" data-testid="dashboard-tabs">
+            <TabsList className="grid w-full grid-cols-4" data-testid="dashboard-tabs">
               <TabsTrigger value="overview" data-testid="tab-overview">
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Overview
+              </TabsTrigger>
+              <TabsTrigger value="analytics" data-testid="tab-analytics">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Analytics
               </TabsTrigger>
               <TabsTrigger value="routing" data-testid="tab-routing">
                 <Route className="w-4 h-4 mr-2" />
@@ -470,6 +475,10 @@ export default function AgentDashboard() {
             </Card>
           </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-8">
+              <AnalyticsDashboard />
             </TabsContent>
 
             <TabsContent value="routing" className="space-y-8">

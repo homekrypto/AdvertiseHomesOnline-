@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import {
   Users, UserCheck, Building, TrendingUp, DollarSign, BarChart3,
   Settings, Filter, Search, Edit, Trash2, UserX, CheckCircle, 
@@ -172,11 +173,12 @@ export default function ComprehensiveAdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="properties">Properties</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -291,6 +293,11 @@ export default function ComprehensiveAdminDashboard() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsDashboard />
         </TabsContent>
 
         {/* User Management Tab */}

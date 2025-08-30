@@ -508,6 +508,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ANALYTICS ENDPOINTS
+  // Get comprehensive analytics metrics (Admin/Expert/Agency only)
+  app.get('/api/analytics/metrics', isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    
+    if (!user || !['admin', 'expert', 'agency'].includes(user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    try {
+      const { analyticsService } = await import('./analyticsService');
+      const metrics = await analyticsService.getAnalyticsMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error('Analytics metrics error:', error);
+      res.status(500).json({ message: 'Failed to fetch analytics metrics' });
+    }
+  });
+
+  // Get revenue analytics for charts (Admin/Expert/Agency only)
+  app.get('/api/analytics/revenue', isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    
+    if (!user || !['admin', 'expert', 'agency'].includes(user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    try {
+      const { analyticsService } = await import('./analyticsService');
+      const revenueAnalytics = await analyticsService.getRevenueAnalytics();
+      res.json(revenueAnalytics);
+    } catch (error) {
+      console.error('Revenue analytics error:', error);
+      res.status(500).json({ message: 'Failed to fetch revenue analytics' });
+    }
+  });
+
+  // Track user activity
+  app.post('/api/analytics/activity', isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    
+    try {
+      const { analyticsService } = await import('./analyticsService');
+      await analyticsService.trackUserActivity({
+        userId: user.claims.sub,
+        activity: req.body.activity,
+        details: req.body.details,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || '',
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Activity tracking error:', error);
+      res.status(500).json({ message: 'Failed to track activity' });
+    }
+  });
+
   app.get('/api/admin/actions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

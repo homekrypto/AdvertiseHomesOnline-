@@ -88,6 +88,49 @@ export const adminActions = pgTable("admin_actions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Revenue Tracking
+export const revenueEvents = pgTable("revenue_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  organizationId: varchar("organization_id"),
+  eventType: varchar("event_type").notNull(), // subscription_created, payment_success, payment_failed, subscription_cancelled, subscription_renewed
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("USD"),
+  planId: varchar("plan_id"),
+  stripeEventId: varchar("stripe_event_id"),
+  metadata: jsonb("metadata"),
+  processedAt: timestamp("processed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Analytics Snapshots (for historical tracking)
+export const analyticsSnapshots = pgTable("analytics_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotDate: timestamp("snapshot_date").notNull(),
+  totalUsers: integer("total_users").notNull().default(0),
+  totalSubscribers: integer("total_subscribers").notNull().default(0),
+  totalProperties: integer("total_properties").notNull().default(0),
+  totalLeads: integer("total_leads").notNull().default(0),
+  mrr: decimal("mrr", { precision: 12, scale: 2 }).notNull().default("0"),
+  arr: decimal("arr", { precision: 12, scale: 2 }).notNull().default("0"),
+  churnRate: decimal("churn_rate", { precision: 5, scale: 4 }).default("0"),
+  conversionRate: decimal("conversion_rate", { precision: 5, scale: 4 }).default("0"),
+  avgRevenuePerUser: decimal("avg_revenue_per_user", { precision: 10, scale: 2 }).default("0"),
+  tierBreakdown: jsonb("tier_breakdown"), // user counts by tier
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Activity Tracking
+export const userActivityLogs = pgTable("user_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  activity: varchar("activity").notNull(), // login, property_created, lead_generated, etc.
+  details: jsonb("details"),
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Properties
 export const properties = pgTable("properties", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -327,6 +370,22 @@ export const insertAdminActionSchema = createInsertSchema(adminActions).omit({
   createdAt: true,
 });
 
+export const insertRevenueEventSchema = createInsertSchema(revenueEvents).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+});
+
+export const insertAnalyticsSnapshotSchema = createInsertSchema(analyticsSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserActivityLogSchema = createInsertSchema(userActivityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
@@ -348,6 +407,12 @@ export type InsertSavedSearch = z.infer<typeof insertSavedSearchSchema>;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
 export type AdminAction = typeof adminActions.$inferSelect;
 export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
+export type RevenueEvent = typeof revenueEvents.$inferSelect;
+export type InsertRevenueEvent = z.infer<typeof insertRevenueEventSchema>;
+export type AnalyticsSnapshot = typeof analyticsSnapshots.$inferSelect;
+export type InsertAnalyticsSnapshot = z.infer<typeof insertAnalyticsSnapshotSchema>;
+export type UserActivityLog = typeof userActivityLogs.$inferSelect;
+export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
 
 // Feature Flag System - Based on Subscription Tiers
 export interface FeatureFlags {

@@ -9,6 +9,9 @@ import {
   adminActions,
   leadRoutingConfig,
   leadAssignmentTracking,
+  revenueEvents,
+  analyticsSnapshots,
+  userActivityLogs,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -29,6 +32,10 @@ import {
   type SubscriptionPlan,
   type AdminAction,
   type InsertAdminAction,
+  type RevenueEvent,
+  type InsertRevenueEvent,
+  type AnalyticsSnapshot,
+  type UserActivityLog,
   type FeatureFlags,
 } from "@shared/schema";
 import { db } from "./db";
