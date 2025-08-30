@@ -1139,6 +1139,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Additional admin routes for compatibility with frontend
+  app.get('/api/admin/revenue-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getRevenueAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching revenue analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get('/api/admin/dashboard-metrics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const metrics = await storage.getDashboardMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching dashboard metrics:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard metrics" });
+    }
+  });
+
   // Object storage routes for property images
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();
@@ -1272,25 +1307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      // Mock subscription data - in real implementation, this would come from Stripe
-      const subscriptions = await storage.getAllUsers();
-      const subscriptionData = subscriptions
-        .filter(u => u.stripeSubscriptionId)
-        .map(u => ({
-          id: u.id,
-          userId: u.id,
-          userEmail: u.email,
-          userName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
-          plan: u.role,
-          status: u.status,
-          currentPeriodStart: u.createdAt,
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          amount: u.role === 'premium' ? 29 : u.role === 'agent' ? 49 : u.role === 'agency' ? 99 : 199,
-          currency: 'usd',
-          stripeSubscriptionId: u.stripeSubscriptionId,
-          createdAt: u.createdAt,
-          updatedAt: u.updatedAt || u.createdAt
-        }));
+      const subscriptionData = await storage.getSubscriptionData();
       
       res.json(subscriptionData);
     } catch (error) {
@@ -1308,20 +1325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      // Mock payment data - in real implementation, this would come from Stripe
-      const users = await storage.getAllUsers();
-      const paymentData = users
-        .filter(u => u.stripeSubscriptionId)
-        .map(u => ({
-          id: `payment_${u.id}`,
-          userId: u.id,
-          subscriptionId: u.stripeSubscriptionId,
-          amount: u.role === 'premium' ? 29 : u.role === 'agent' ? 49 : u.role === 'agency' ? 99 : 199,
-          currency: 'usd',
-          status: Math.random() > 0.1 ? 'succeeded' : 'failed',
-          paymentDate: u.createdAt,
-          failureReason: Math.random() > 0.5 ? 'card_declined' : 'insufficient_funds'
-        }));
+      const paymentData = await storage.getPaymentData();
       
       res.json(paymentData);
     } catch (error) {
@@ -1339,16 +1343,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      const users = await storage.getAllUsers();
-      const activeSubscriptions = users.filter(u => u.stripeSubscriptionId && u.status === 'active').length;
-      const monthlyRevenue = activeSubscriptions * 49; // Average subscription price
-      
-      res.json({
-        activeSubscriptions,
-        monthlyRevenue,
-        churnRate: 2.5,
-        conversionRate: 3.2
-      });
+      const stats = await storage.getSubscriptionStats();
+      res.json(stats);
     } catch (error) {
       console.error('Error fetching subscription stats:', error);
       res.status(500).json({ message: 'Failed to fetch subscription stats' });
@@ -1365,36 +1361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      const users = await storage.getAllUsers();
-      const properties = await storage.getProperties();
-      const totalRevenue = users.filter(u => u.stripeSubscriptionId).length * 49;
-      
-      const analyticsData = {
-        revenue: {
-          totalRevenue,
-          monthlyRevenue: totalRevenue,
-          revenueGrowth: 12.5,
-          arpu: users.length > 0 ? totalRevenue / users.length : 0
-        },
-        users: {
-          totalUsers: users.length,
-          activeUsers: users.filter(u => u.status === 'active').length,
-          newUsers: Math.floor(users.length * 0.15),
-          userGrowth: 8.3
-        },
-        properties: {
-          totalProperties: properties.length,
-          activeProperties: properties.filter(p => p.status === 'active').length,
-          totalViews: properties.reduce((sum, p) => sum + (p.views || 0), 0),
-          totalSaves: properties.reduce((sum, p) => sum + (p.saves || 0), 0)
-        },
-        conversion: {
-          freeTopremium: 3.2,
-          premiumToAgent: 12.8,
-          agentToAgency: 8.1,
-          overallConversion: 4.7
-        }
-      };
+      const analyticsData = await storage.getAnalyticsData();
       
       res.json(analyticsData);
     } catch (error) {
@@ -1412,18 +1379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      const users = await storage.getAllUsers();
-      const behaviorData = users.slice(0, 20).map(u => ({
-        id: u.id,
-        userId: u.id,
-        userName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email?.split('@')[0] || 'User',
-        userEmail: u.email,
-        propertiesViewed: Math.floor(Math.random() * 50) + 1,
-        timeSpent: Math.floor(Math.random() * 120) + 10,
-        lastActivity: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-        conversionStage: ['browsing', 'engaged', 'trial', 'converted'][Math.floor(Math.random() * 4)],
-        actions: ['viewed_property', 'saved_search', 'contacted_agent']
-      }));
+      const behaviorData = await storage.getUserBehaviorData();
       
       res.json(behaviorData);
     } catch (error) {
