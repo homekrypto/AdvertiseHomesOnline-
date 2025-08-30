@@ -1,7 +1,8 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./simpleAuth";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
@@ -9,6 +10,7 @@ import {
 import { ObjectPermission } from "./objectAcl";
 import { insertPropertySchema, insertLeadSchema, insertFavoriteSchema, insertSavedSearchSchema } from "@shared/schema";
 import Stripe from "stripe";
+import { handleStripeWebhook } from "./stripeWebhooks";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -22,23 +24,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
-  // Auth routes - simplified for testing
-  app.get('/api/auth/user', async (req: any, res) => {
+  // Auth routes 
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      
       const userId = req.user?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ message: "No user ID in session" });
-      }
-      
       const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -679,6 +669,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating subscription:", error);
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Stripe webhook endpoint
+  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const sig = req.headers['stripe-signature'] as string;
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret || '');
+    } catch (err: any) {
+      console.log(`Webhook signature verification failed:`, err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      await handleStripeWebhook(event);
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(400).json({ error: 'Webhook processing failed' });
     }
   });
 
