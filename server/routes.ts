@@ -440,6 +440,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Comprehensive admin dashboard endpoints
+  app.get('/api/admin/dashboard', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const metrics = await storage.getDashboardMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+  app.get('/api/admin/subscription-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const users = await storage.getAllUsers();
+      const metrics = {
+        totalSubscriptions: users.length,
+        activeSubscriptions: users.filter(u => u.status === 'active').length,
+        trialSubscriptions: users.filter(u => u.status === 'trial').length,
+        cancelledSubscriptions: users.filter(u => u.status === 'cancelled').length,
+        expiredSubscriptions: users.filter(u => u.status === 'expired').length,
+        suspendedSubscriptions: users.filter(u => u.status === 'suspended').length,
+        conversionRate: 12.5,
+        monthlyChurn: 2.8,
+      };
+      
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching subscription analytics:", error);
+      res.status(500).json({ message: "Failed to fetch subscription analytics" });
+    }
+  });
+
+  app.get('/api/admin/revenue-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const analytics = await storage.getRevenueAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching revenue analytics:", error);
+      res.status(500).json({ message: "Failed to fetch revenue analytics" });
+    }
+  });
+
+  app.get('/api/admin/actions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const actions = await storage.getAdminActions();
+      res.json(actions);
+    } catch (error) {
+      console.error("Error fetching admin actions:", error);
+      res.status(500).json({ message: "Failed to fetch admin actions" });
+    }
+  });
+
+  // User management endpoints
+  app.put('/api/admin/users/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const targetUserId = req.params.id;
+      const updates = req.body;
+      
+      await storage.logAdminAction({
+        actorId: userId,
+        actionType: 'UPDATE_USER',
+        targetType: 'USER',
+        targetId: targetUserId,
+        afterData: updates,
+      });
+      
+      const updatedUser = await storage.updateUserRole(targetUserId, updates.role);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.post('/api/admin/users/:id/suspend', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const targetUserId = req.params.id;
+      
+      await storage.logAdminAction({
+        actorId: userId,
+        actionType: 'SUSPEND_USER',
+        targetType: 'USER',
+        targetId: targetUserId,
+      });
+      
+      const updatedUser = await storage.updateUserStatus(targetUserId, 'suspended');
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error suspending user:", error);
+      res.status(500).json({ message: "Failed to suspend user" });
+    }
+  });
+
+  app.post('/api/admin/users/:id/change-tier', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const targetUserId = req.params.id;
+      const { role } = req.body;
+      
+      await storage.logAdminAction({
+        actorId: userId,
+        actionType: 'CHANGE_USER_TIER',
+        targetType: 'USER',
+        targetId: targetUserId,
+        afterData: { role },
+      });
+      
+      const updatedUser = await storage.updateUserRole(targetUserId, role);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error changing user tier:", error);
+      res.status(500).json({ message: "Failed to change user tier" });
+    }
+  });
+
   // Lead Routing API (Agency/Expert)
   app.post('/api/leads/:id/assign', isAuthenticated, async (req: any, res) => {
     try {

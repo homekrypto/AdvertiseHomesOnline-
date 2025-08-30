@@ -11,6 +11,7 @@ import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
 import AgentDashboard from "@/pages/AgentDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
+import ComprehensiveAdminDashboard from "@/pages/ComprehensiveAdminDashboard";
 import Subscribe from "@/pages/Subscribe";
 
 function Router() {
@@ -34,6 +35,7 @@ function Router() {
           <Route path="/subscribe" component={Subscribe} />
           <Route path="/agent/dashboard" component={AgentDashboard} />
           <Route path="/admin/dashboard" component={AdminDashboard} />
+          <Route path="/admin/comprehensive" component={ComprehensiveAdminDashboard} />
           <Route component={NotFound} />
         </>
       )}

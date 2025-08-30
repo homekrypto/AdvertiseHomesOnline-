@@ -6,6 +6,7 @@ import {
   favorites,
   savedSearches,
   subscriptionPlans,
+  adminActions,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -20,6 +21,9 @@ import {
   type SavedSearch,
   type InsertSavedSearch,
   type SubscriptionPlan,
+  type AdminAction,
+  type InsertAdminAction,
+  type FeatureFlags,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, count, like, or } from "drizzle-orm";
@@ -31,6 +35,10 @@ export interface IStorage {
   updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   updateUserRole(userId: string, role: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  updateUserFeatureFlags(userId: string, featureFlags: any): Promise<User>;
+  updateUserStatus(userId: string, status: string): Promise<User>;
+  updateUserTrialStatus(userId: string, status: string, trialEnd: Date): Promise<User>;
+  getUsersByOrganization(orgId: string): Promise<User[]>;
   
   // Organization operations
   createOrganization(org: InsertOrganization): Promise<Organization>;
@@ -77,6 +85,15 @@ export interface IStorage {
   getAgentMetrics(agentId: string): Promise<AgentMetrics>;
   getPlatformStats(): Promise<PlatformStats>;
   getRevenueAnalytics(): Promise<RevenueAnalytics>;
+  
+  // Admin actions
+  logAdminAction(action: InsertAdminAction): Promise<AdminAction>;
+  getAdminActions(limit?: number): Promise<AdminAction[]>;
+  
+  // Subscription management
+  updateSubscriptionStatus(userId: string, status: string): Promise<User>;
+  handlePaymentFailure(userId: string): Promise<void>;
+  enforceListingCaps(): Promise<void>;
 }
 
 export interface PropertyFilters {
@@ -131,6 +148,17 @@ export interface RevenueAnalytics {
   churnRate: number;
   subscriptionsByTier: Record<string, number>;
   revenueGrowth: number;
+}
+
+export interface SubscriptionMetrics {
+  totalSubscriptions: number;
+  activeSubscriptions: number;
+  trialSubscriptions: number;
+  cancelledSubscriptions: number;
+  expiredSubscriptions: number;
+  suspendedSubscriptions: number;
+  conversionRate: number;
+  monthlyChurn: number;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -619,6 +647,51 @@ export class DatabaseStorage implements IStorage {
       subscriptionsByTier: tierCounts,
       revenueGrowth: 15, // Would be calculated from historical data
     };
+  }
+
+  // New subscription management methods
+  async updateUserFeatureFlags(userId: string, featureFlags: any): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ featureFlags, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+  
+  async updateUserStatus(userId: string, status: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+  
+  async updateUserTrialStatus(userId: string, status: string, trialEnd: Date): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ status, trialEnd, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  // Admin action logging
+  async logAdminAction(action: InsertAdminAction): Promise<AdminAction> {
+    const [adminAction] = await db
+      .insert(adminActions)
+      .values(action)
+      .returning();
+    return adminAction;
+  }
+
+  async getAdminActions(limit = 100): Promise<AdminAction[]> {
+    return await db
+      .select()
+      .from(adminActions)
+      .orderBy(desc(adminActions.createdAt))
+      .limit(limit);
   }
 }
 

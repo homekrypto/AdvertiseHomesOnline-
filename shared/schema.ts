@@ -33,10 +33,14 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("free"), // free, registered, premium, agent, agency, expert, admin
-  status: varchar("status").notNull().default("active"), // active, suspended, cancelled
+  status: varchar("status").notNull().default("active"), // active, trial, cancelled, expired, suspended
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   organizationId: varchar("organization_id"),
+  featureFlags: jsonb("feature_flags").default('{}'), // Feature access control
+  trialEnd: timestamp("trial_end"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -50,6 +54,8 @@ export const organizations = pgTable("organizations", {
   seatsUsed: integer("seats_used").notNull().default(0),
   listingCap: integer("listing_cap").notNull().default(25),
   featuredCredits: integer("featured_credits").notNull().default(0),
+  rankBoost: decimal("rank_boost", { precision: 3, scale: 2 }).default('1.00'),
+  integrations: jsonb("integrations").default('{}'),
   ownerId: varchar("owner_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -65,6 +71,20 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   features: jsonb("features").notNull(), // JSON object with feature flags
   listingCap: integer("listing_cap"),
   seats: integer("seats"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Admin Actions for audit logging
+export const adminActions = pgTable("admin_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id").notNull(),
+  actionType: varchar("action_type").notNull(),
+  targetType: varchar("target_type").notNull(),
+  targetId: varchar("target_id").notNull(),
+  beforeData: jsonb("before_data"),
+  afterData: jsonb("after_data"),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -232,6 +252,11 @@ export const insertSavedSearchSchema = createInsertSchema(savedSearches).omit({
   createdAt: true,
 });
 
+export const insertAdminActionSchema = createInsertSchema(adminActions).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
@@ -247,3 +272,47 @@ export type InsertFavorite = z.infer<typeof insertFavoriteSchema>;
 export type SavedSearch = typeof savedSearches.$inferSelect;
 export type InsertSavedSearch = z.infer<typeof insertSavedSearchSchema>;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type AdminAction = typeof adminActions.$inferSelect;
+export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
+
+// Feature Flag System - Based on Subscription Tiers
+export interface FeatureFlags {
+  // Basic access permissions
+  can_view_listings: boolean;
+  can_view_contact_info: boolean;
+  can_save_favorites: boolean;
+  can_view_analytics: 'none' | 'limited' | 'full';
+  can_contact_via_form: boolean;
+  can_advanced_filters: boolean;
+  can_virtual_tours: boolean;
+  
+  // Agent-specific features
+  agent_max_active_listings: number;
+  agent_featured_credits_monthly: number;
+  agent_analytics: 'none' | 'basic' | 'advanced';
+  
+  // Organization features
+  org_max_active_listings: number;
+  org_seats: number;
+  org_crm: boolean;
+  org_lead_routing: boolean;
+  org_bulk_import: boolean;
+  org_branding_page: boolean;
+  
+  // AI and automation features
+  ai_pricing_suggestions: boolean;
+  ai_comp_selection: boolean;
+  ai_automation: boolean;
+  integrations_api: boolean;
+  priority_rank_boost: boolean;
+  priority_support: boolean;
+}
+
+// Subscription Status Types
+export type SubscriptionStatus = 'active' | 'trial' | 'cancelled' | 'expired' | 'suspended';
+
+// User Role Types
+export type UserRole = 'free' | 'registered' | 'premium' | 'agent' | 'agency' | 'expert' | 'admin';
+
+// Admin Permission Types
+export type AdminRole = 'super_admin' | 'billing_admin' | 'user_support' | 'content_admin' | 'analytics_viewer';
