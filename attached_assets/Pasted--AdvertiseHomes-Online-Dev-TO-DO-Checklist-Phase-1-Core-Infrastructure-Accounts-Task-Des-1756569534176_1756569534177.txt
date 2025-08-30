@@ -1,0 +1,66 @@
+
+
+🛠 AdvertiseHomes.Online — Dev TO-DO Checklist
+
+
+Phase 1 — Core Infrastructure & Accounts
+Task	Description	Priority	Dependencies	Status
+1.1	Set up AWS account with MFA & SSO	High	None	⬜
+1.2	Configure IAM roles (least privilege)	High	AWS account	⬜
+1.3	Set up DynamoDB tables (Users, Orgs, Properties, Subscriptions, Payments, AdminActions)	High	AWS account	⬜
+1.4	Set up Lambda functions skeleton	High	AWS account	⬜
+1.5	Configure API Gateway routes (auth, users, subscriptions, listings, leads, admin)	High	Lambda functions	⬜
+1.6	Set up CloudFront + S3 for media storage	Medium	None	⬜
+1.7	Set up SES & SNS for email/SMS	High	AWS account	⬜
+1.8	Connect Stripe test account (checkout & billing)	High	None	⬜
+Phase 2 — Authentication & RBAC
+Task	Description	Priority	Dependencies	Status
+2.1	Implement user registration/login (email/password & magic link)	High	Phase 1	⬜
+2.2	Implement SSO/SAML (for Expert/Enterprise)	Medium	Phase 1	⬜
+2.3	Implement role-based access control (RBAC)	High	Phase 1	⬜
+2.4	Configure JWT + 2FA + device/IP logging	High	Phase 1	⬜
+2.5	Create admin roles: super_admin, billing_admin, content_admin, analytics_viewer	High	Phase 1	⬜
+2.6	Create org roles: owner, manager, agent, analyst, viewer	High	Phase 1	⬜
+Phase 3 — Users & Subscriptions
+Task	Description	Priority	Dependencies	Status
+3.1	Create user profile API + DynamoDB table schema	High	Phase 1	⬜
+3.2	Implement subscription plans: Free, Premium, Agent, Agency, Expert	High	Stripe integration	⬜
+3.3	Subscription management (create, cancel, upgrade, downgrade, trial, coupon)	High	Stripe integration	⬜
+3.4	Enforce feature flags per tier	High	Subscription management	⬜
+3.5	Payment webhooks handling (success, failure, dunning, refunds)	High	Stripe integration	⬜
+3.6	Seat & listing cap enforcement	High	Subscription management	⬜
+Phase 4 — Property Listings & Agent Features
+Task	Description	Priority	Dependencies	Status
+4.1	CRUD for property listings (add/edit/archive)	High	Phase 1, 3	⬜
+4.2	Implement property media upload pipeline	High	S3/CloudFront	⬜
+4.3	Implement property analytics (views, saves, CTR)	Medium	Phase 4.1	⬜
+4.4	Implement featured listing placement & credits	Medium	Phase 3.6	⬜
+4.5	Bulk import via CSV/API for Agency plan	Medium	Phase 4.1	⬜
+4.6	Lead routing for Agency/Expert plans	High	Phase 3.6	⬜
+Phase 5 — Dashboards & Frontend
+Task	Description	Priority	Dependencies	Status
+5.1	Admin dashboard: Overview, User Mgmt, Subscriptions, Analytics, Properties	High	Phase 3+4	⬜
+5.2	Agent dashboard: Listings, Inbox, Analytics, Featured Credits	High	Phase 4	⬜
+5.3	Agency dashboard: Team management, Lead routing, CRM-lite, Branding	High	Phase 4	⬜
+5.4	Expert dashboard: AI Hub, Automation Flows, Predictive Analytics, API/Integrations	High	Phase 4	⬜
+5.5	Implement Favorites, Saved Searches, Alerts for registered users	Medium	Phase 3	⬜
+5.6	Implement Advanced Filters & Analytics for Premium users	Medium	Phase 5.1	⬜
+Phase 6 — AI & Automation (Expert Tier)
+Task	Description	Priority	Dependencies	Status
+6.1	AI pricing suggestions per listing	High	Phase 4	⬜
+6.2	Comp analysis & market predictive analytics	High	Phase 4	⬜
+6.3	Auto-blog generation per listing	Medium	Phase 6.1	⬜
+6.4	Social media post automation (FB, IG, LinkedIn, Twitter, TikTok, YouTube)	Medium	Phase 6.3	⬜
+6.5	AI-driven follow-ups & lead nurturing	Medium	Phase 6.1	⬜
+Phase 7 — SEO & Performance
+Task	Description	Priority	Dependencies	Status
+7.1	Auto-generate SEO meta + JSON-LD per listing	High	Phase 4	⬜
+7.2	Sitemap & Open Graph/Twitter Cards automation	Medium	Phase 4	⬜
+7.3	Image optimization (WebP/AVIF + lazy load)	Medium	Phase 4	⬜
+7.4	Ensure clean URLs & canonicalization	Medium	Phase 4	⬜
+Phase 8 — Reporting & Analytics
+Task	Description	Priority	Dependencies	Status
+8.1	Revenue, MRR/ARR, ARPA dashboards	High	Phase 3	⬜
+8.2	User cohort, churn, and behavior analytics	High	Phase 3+4	⬜
+8.3	Listing performance & lead analytics	Medium	Phase 4	⬜
+8.4	Scheduled CSV/PDF exports via SES/S3	Medium	Phase 8.1	⬜
