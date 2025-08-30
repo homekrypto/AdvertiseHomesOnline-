@@ -1,4 +1,7 @@
 import type { FeatureFlags, UserRole, User } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
+import { db } from "./db";
+import { users } from "@shared/schema";
 
 // Default feature flags based on subscription tiers (as per specification)
 export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string): FeatureFlags {
@@ -263,4 +266,65 @@ export async function checkSeatUsage(organizationId: string, storage: any): Prom
     percentage,
     canAddMore
   };
+}
+
+// Enhanced feature flag helpers for new property management system
+
+// Consume a featured credit for a user
+export async function consumeFeaturedCredit(userId: string, storage: any): Promise<void> {
+  const user = await storage.getUser(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const featuredCredits = user.featuredCredits || 0;
+  
+  if (featuredCredits <= 0) {
+    throw new Error('No featured credits available. Upgrade your plan or purchase additional credits.');
+  }
+
+  // Consume one featured credit
+  await db.update(users)
+    .set({ featuredCredits: sql`${users.featuredCredits} - 1` })
+    .where(eq(users.id, userId));
+}
+
+// Get user's feature configuration for property forms
+export async function getPropertyFormConfig(userId: string, storage: any) {
+  const user = await storage.getUser(userId);
+  if (!user) throw new Error('User not found');
+
+  const flags = getFeatureFlagsForRole(user.role as UserRole);
+  const userProperties = await storage.getPropertiesByAgent(userId);
+  
+  return {
+    role: user.role,
+    features: flags,
+    bulkImportEnabled: flags.org_bulk_import,
+    aiSuggestionsEnabled: flags.ai_pricing_suggestions,
+    featuredCreditsAvailable: user.featuredCredits || flags.agent_featured_credits_monthly || 0,
+    listingCap: flags.agent_max_active_listings || flags.org_max_active_listings || 0,
+    usedListings: userProperties.length,
+    availableListings: Math.max(0, (flags.agent_max_active_listings || flags.org_max_active_listings || 0) - userProperties.length),
+    advancedAnalytics: flags.can_view_analytics === 'full',
+    customBranding: flags.org_branding_page || false,
+    prioritySupport: flags.priority_support || false,
+  };
+}
+
+// Check if user can access AI features
+export function canAccessAIFeatures(user: User): boolean {
+  const flags = getFeatureFlagsForRole(user.role as UserRole);
+  return flags.ai_pricing_suggestions && flags.ai_comp_selection;
+}
+
+// Check if user can perform bulk operations  
+export function canPerformBulkOperations(user: User): boolean {
+  const flags = getFeatureFlagsForRole(user.role as UserRole);
+  return flags.org_bulk_import;
+}
+
+// Get feature flags using new format for compatibility
+export function getFeatureFlags(role: string): FeatureFlags {
+  return getFeatureFlagsForRole(role as UserRole);
 }

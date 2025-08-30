@@ -142,6 +142,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         slug,
       });
 
+      // Initialize analytics tracking for new property
+      try {
+        const { analyticsService } = await import('./analyticsService');
+        await analyticsService.trackUserActivity({
+          userId,
+          activity: 'property_created',
+          details: { 
+            propertyId: property.id, 
+            propertyType: property.propertyType,
+            price: property.price,
+            city: property.city,
+            featured: property.featured 
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (analyticsError) {
+        console.warn('Failed to track property creation analytics:', analyticsError);
+      }
+
       res.status(201).json(property);
     } catch (error) {
       console.error("Error creating property:", error);
@@ -233,6 +253,282 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching leads:", error);
       res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  // Bulk property import (Agency/Expert only)
+  app.post('/api/properties/bulk-import', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['agency', 'expert', 'admin'].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Bulk import requires Agency or Expert tier" 
+        });
+      }
+
+      const { properties } = req.body;
+      
+      if (!Array.isArray(properties) || properties.length === 0) {
+        return res.status(400).json({ message: "Properties array is required" });
+      }
+
+      if (properties.length > 50) {
+        return res.status(400).json({ 
+          message: "Bulk import limited to 50 properties at once" 
+        });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        skipped: []
+      };
+
+      for (const propertyData of properties) {
+        try {
+          // Check listing caps for each property
+          const { enforceListingCaps } = await import('./featureFlags');
+          await enforceListingCaps(userId, storage);
+
+          const parsedData = insertPropertySchema.parse({
+            ...propertyData,
+            agentId: userId,
+            organizationId: user.organizationId,
+          });
+
+          // Generate slug
+          const slug = `${parsedData.title}-${parsedData.city}`.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          
+          const property = await storage.createProperty({
+            ...parsedData,
+            slug,
+          });
+
+          results.successful.push({ 
+            originalData: propertyData, 
+            createdProperty: property 
+          });
+
+        } catch (error: any) {
+          if (error.message.includes('LISTING_LIMIT_EXCEEDED')) {
+            results.skipped.push({ 
+              originalData: propertyData, 
+              reason: 'Listing limit reached' 
+            });
+            break; // Stop processing if we hit the limit
+          } else {
+            results.failed.push({ 
+              originalData: propertyData, 
+              error: error.message 
+            });
+          }
+        }
+      }
+
+      // Track bulk import activity
+      try {
+        const { analyticsService } = await import('./analyticsService');
+        await analyticsService.trackUserActivity({
+          userId,
+          activity: 'bulk_property_import',
+          details: {
+            totalAttempted: properties.length,
+            successful: results.successful.length,
+            failed: results.failed.length,
+            skipped: results.skipped.length
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (analyticsError) {
+        console.warn('Failed to track bulk import analytics:', analyticsError);
+      }
+
+      res.status(201).json(results);
+    } catch (error) {
+      console.error("Error in bulk property import:", error);
+      res.status(500).json({ message: "Failed to import properties" });
+    }
+  });
+
+  // Feature property (use featured credits)
+  app.post('/api/properties/:id/feature', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const propertyId = req.params.id;
+      
+      if (!user || !['agent', 'agency', 'expert', 'admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      // Check property ownership or organization membership
+      const isOwner = property.agentId === userId;
+      const isOrgMember = user.organizationId && property.organizationId === user.organizationId;
+      const isAdmin = user.role === 'admin';
+
+      if (!isOwner && !isOrgMember && !isAdmin) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Check and consume featured credits
+      try {
+        const { consumeFeaturedCredit } = await import('./featureFlags');
+        await consumeFeaturedCredit(userId, storage);
+      } catch (creditError: any) {
+        return res.status(403).json({ 
+          message: creditError.message,
+          code: 'INSUFFICIENT_FEATURED_CREDITS'
+        });
+      }
+
+      const { duration } = req.body; // duration in days, default 30
+      const featureDuration = duration || 30;
+      const featuredUntil = new Date();
+      featuredUntil.setDate(featuredUntil.getDate() + featureDuration);
+
+      const updatedProperty = await storage.updateProperty(propertyId, {
+        featured: true,
+        featuredUntil
+      });
+
+      // Track featured property activity
+      try {
+        const { analyticsService } = await import('./analyticsService');
+        await analyticsService.trackUserActivity({
+          userId,
+          activity: 'property_featured',
+          details: { 
+            propertyId,
+            duration: featureDuration,
+            featuredUntil: featuredUntil.toISOString()
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (analyticsError) {
+        console.warn('Failed to track property featuring analytics:', analyticsError);
+      }
+
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error featuring property:", error);
+      res.status(500).json({ message: "Failed to feature property" });
+    }
+  });
+
+  // Get property form configuration based on user tier
+  app.get('/api/properties/form-config', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['agent', 'agency', 'expert', 'admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { getFeatureFlags } = await import('./featureFlags');
+      const featureFlags = await getFeatureFlags(user.role);
+
+      const config = {
+        role: user.role,
+        features: featureFlags,
+        bulkImportEnabled: ['agency', 'expert', 'admin'].includes(user.role),
+        aiSuggestionsEnabled: ['expert', 'admin'].includes(user.role),
+        featuredCreditsAvailable: user.featuredCredits || 0,
+        listingCap: user.listingCap || 0,
+        usedListings: user.usedListings || 0,
+        availableListings: (user.listingCap || 0) - (user.usedListings || 0),
+        advancedAnalytics: featureFlags.can_view_analytics === 'full',
+        customBranding: featureFlags.custom_branding || false,
+        prioritySupport: featureFlags.priority_support || false,
+      };
+
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching property form config:", error);
+      res.status(500).json({ message: "Failed to fetch form configuration" });
+    }
+  });
+
+  // Get AI property suggestions (Expert tier only)
+  app.post('/api/properties/ai-suggestions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !['expert', 'admin'].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "AI suggestions require Expert tier" 
+        });
+      }
+
+      const { propertyData } = req.body;
+      
+      // Simulate AI suggestions (in a real app, this would call an AI service)
+      const suggestions = {
+        pricing: {
+          suggestedPrice: Math.round(propertyData.price * (0.95 + Math.random() * 0.1)),
+          marketAnalysis: "Based on similar properties in the area",
+          confidence: 0.85
+        },
+        description: {
+          keyFeatures: [
+            "Updated kitchen with modern appliances",
+            "Spacious master bedroom with walk-in closet", 
+            "Landscaped backyard perfect for entertaining"
+          ],
+          marketingTips: [
+            "Highlight the location benefits",
+            "Emphasize the move-in ready condition",
+            "Mention nearby schools and amenities"
+          ]
+        },
+        photography: {
+          recommendedAngles: [
+            "Front exterior with landscaping",
+            "Kitchen showing modern updates",
+            "Living room natural lighting"
+          ],
+          stagingTips: [
+            "Declutter all personal items",
+            "Add fresh flowers to dining table",
+            "Open all blinds for natural light"
+          ]
+        }
+      };
+
+      // Track AI suggestion usage
+      try {
+        const { analyticsService } = await import('./analyticsService');
+        await analyticsService.trackUserActivity({
+          userId,
+          activity: 'ai_suggestions_used',
+          details: { 
+            propertyType: propertyData.propertyType,
+            priceRange: propertyData.price,
+            suggestionsGenerated: Object.keys(suggestions).length
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (analyticsError) {
+        console.warn('Failed to track AI suggestions analytics:', analyticsError);
+      }
+
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error generating AI suggestions:", error);
+      res.status(500).json({ message: "Failed to generate suggestions" });
     }
   });
 
