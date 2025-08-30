@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Home from "@/pages/Home";
 import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
@@ -22,6 +24,8 @@ function Router() {
       {isLoading || !isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
           <Route path="/properties" component={Properties} />
           <Route path="/properties/:slug" component={PropertyDetail} />
           <Route path="/subscribe" component={Subscribe} />

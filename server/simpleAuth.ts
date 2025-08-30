@@ -212,35 +212,7 @@ export async function setupAuth(app: Express) {
   });
 
   // Demo login for testing (temporary)
-  app.get("/api/login", async (req, res) => {
-    try {
-      // Get or create real user and log them in
-      const realUser = await createOrGetRealUser({ 
-        email: req.query.email as string || "user@example.com",
-        role: req.query.role as string || "premium"
-      });
-      
-      console.log(`Demo login: ${realUser.email} with role: ${realUser.role}`);
-      
-      // Set user session
-      req.login({ 
-        claims: { sub: realUser.id }, 
-        dbUser: realUser 
-      }, (err: any) => {
-        if (err) {
-          console.error('Login error:', err);
-          return res.redirect('/');
-        }
-        
-        console.log('Login successful, redirecting based on role:', realUser.role);
-        // Role-based redirect after successful authentication
-        handleAuthSuccess(req, res);
-      });
-    } catch (error) {
-      console.error('Auth setup error:', error);
-      res.redirect('/');
-    }
-  });
+  // Demo login endpoint removed - use /register and /login pages instead
 
   app.get("/api/logout", (req, res) => {
     req.logout((err: any) => {

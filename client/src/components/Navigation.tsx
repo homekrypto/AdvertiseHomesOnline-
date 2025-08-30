@@ -1,13 +1,11 @@
-// import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Home, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 export default function Navigation() {
-  // Temporarily disable auth to fix infinite loop
-  const user = null;
-  const isAuthenticated = false;
+  const { user, isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -82,13 +80,13 @@ export default function Navigation() {
               <>
                 <Button 
                   variant="ghost"
-                  onClick={() => window.location.href = '/api/login'}
+                  onClick={() => window.location.href = '/login'}
                   data-testid="button-signin"
                 >
                   Sign In
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = '/api/login'}
+                  onClick={() => window.location.href = '/register'}
                   data-testid="button-get-started"
                 >
                   Get Started
@@ -167,14 +165,14 @@ export default function Navigation() {
                       variant="ghost"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.location.href = '/api/login'}
+                      onClick={() => window.location.href = '/login'}
                     >
                       Sign In
                     </Button>
                     <Button 
                       size="sm"
                       className="w-full"
-                      onClick={() => window.location.href = '/api/login'}
+                      onClick={() => window.location.href = '/register'}
                     >
                       Get Started
                     </Button>

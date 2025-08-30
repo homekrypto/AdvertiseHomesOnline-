@@ -47,11 +47,11 @@ export default function Landing() {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <button 
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/register'}
               className="bg-white text-primary font-semibold px-8 py-4 rounded-lg hover:bg-white/90 transition-colors shadow-lg"
               data-testid="button-get-started"
             >
-              Get Started - Sign In
+              Get Started
             </button>
             <button 
               onClick={() => window.location.href = '/properties'}
@@ -124,7 +124,7 @@ export default function Landing() {
               ]}
               buttonText="Sign In"
               buttonVariant="outline"
-              onSelect={() => window.location.href = '/api/login'}
+              onSelect={() => window.location.href = '/login'}
               popular={false}
             />
             <PricingCard
@@ -140,7 +140,7 @@ export default function Landing() {
               ]}
               buttonText="Start Free Trial"
               buttonVariant="default"
-              onSelect={() => window.location.href = '/api/login'}
+              onSelect={() => window.location.href = '/login'}
               popular={true}
             />
             <PricingCard
@@ -156,7 +156,7 @@ export default function Landing() {
               ]}
               buttonText="Choose Agent"
               buttonVariant="secondary"
-              onSelect={() => window.location.href = '/api/login'}
+              onSelect={() => window.location.href = '/login'}
               popular={false}
             />
             <PricingCard
@@ -172,7 +172,7 @@ export default function Landing() {
               ]}
               buttonText="Choose Agency"
               buttonVariant="accent"
-              onSelect={() => window.location.href = '/api/login'}
+              onSelect={() => window.location.href = '/login'}
               popular={false}
             />
           </div>
