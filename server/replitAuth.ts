@@ -57,13 +57,49 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  return await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+}
+
+// Role-based redirect handler
+async function handleAuthSuccess(req: any, res: any) {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.redirect('/');
+    }
+    
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.redirect('/');
+    }
+    
+    // Role-based dashboard redirects
+    switch (user.role) {
+      case 'agent':
+        return res.redirect('/agent/dashboard');
+      case 'agency':
+        return res.redirect('/admin/dashboard'); // Team dashboard
+      case 'expert':
+        return res.redirect('/admin/comprehensive'); // AI hub
+      case 'admin':
+        return res.redirect('/admin/comprehensive');
+      case 'premium':
+        return res.redirect('/?welcome=premium');
+      case 'registered':
+      case 'free':
+      default:
+        return res.redirect('/?welcome=true');
+    }
+  } catch (error) {
+    console.error('Error in auth success handler:', error);
+    return res.redirect('/');
+  }
 }
 
 export async function setupAuth(app: Express) {
@@ -78,9 +114,11 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user: any = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    const dbUser = await upsertUser(tokens.claims());
+    // Add role to user session for role-based redirects
+    user.dbUser = dbUser;
     verified(null, user);
   };
 
@@ -110,9 +148,16 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
-    })(req, res, next);
+    })(req, res, (err: any) => {
+      if (err) {
+        console.error('Auth error:', err);
+        return res.redirect('/api/login');
+      }
+      
+      // Role-based redirect after successful authentication
+      handleAuthSuccess(req, res);
+    });
   });
 
   app.get("/api/logout", (req, res) => {
