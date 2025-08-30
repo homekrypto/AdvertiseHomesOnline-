@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Property } from "@shared/schema";
-import { Heart, MapPin, Bed, Bath, Square } from "lucide-react";
+import { Heart, MapPin, Bed, Bath, Square, Eye } from "lucide-react";
 
 interface PropertyCardProps {
   property: Property;
