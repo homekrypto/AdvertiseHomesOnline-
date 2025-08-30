@@ -187,3 +187,80 @@ export function hasReachedListingCap(user: User, currentListings: number): boole
 export function hasReachedSeatCap(organization: any): boolean {
   return organization.seatsUsed >= organization.seatsTotal;
 }
+
+// Comprehensive listing cap enforcement functions
+export async function enforceListingCaps(userId: string, storage: any): Promise<void> {
+  const user = await storage.getUser(userId);
+  if (!user) throw new Error('User not found');
+
+  const userProperties = await storage.getPropertiesByAgent(userId);
+  const currentCount = userProperties.length;
+  const flags = getFeatureFlagsForRole(user.role as UserRole);
+  const maxListings = flags.agent_max_active_listings || flags.org_max_active_listings;
+
+  if (maxListings > 0 && currentCount >= maxListings) {
+    throw new Error(`Listing limit exceeded. Your ${user.role} plan allows ${maxListings} listings. Current: ${currentCount}`);
+  }
+}
+
+export async function checkListingUsage(userId: string, storage: any): Promise<{
+  current: number;
+  limit: number;
+  percentage: number;
+  canCreateMore: boolean;
+  tier: string;
+}> {
+  const user = await storage.getUser(userId);
+  if (!user) throw new Error('User not found');
+
+  const userProperties = await storage.getPropertiesByAgent(userId);
+  const current = userProperties.length;
+  const flags = getFeatureFlagsForRole(user.role as UserRole);
+  const limit = flags.agent_max_active_listings || flags.org_max_active_listings || -1;
+  const percentage = limit === -1 || limit === 0 ? 0 : (current / limit) * 100;
+  const canCreateMore = limit === -1 || limit === 0 || current < limit;
+
+  return {
+    current,
+    limit,
+    percentage,
+    canCreateMore,
+    tier: user.role
+  };
+}
+
+export async function enforceSeatLimits(organizationId: string, storage: any): Promise<void> {
+  const organization = await storage.getOrganization(organizationId);
+  if (!organization) throw new Error('Organization not found');
+
+  const members = await storage.getOrganizationMembers(organizationId);
+  const currentSeats = members.length;
+  const maxSeats = organization.seatLimit || 1;
+
+  if (currentSeats >= maxSeats) {
+    throw new Error(`Seat limit exceeded. Your plan allows ${maxSeats} seats. Current: ${currentSeats}`);
+  }
+}
+
+export async function checkSeatUsage(organizationId: string, storage: any): Promise<{
+  current: number;
+  limit: number;
+  percentage: number;
+  canAddMore: boolean;
+}> {
+  const organization = await storage.getOrganization(organizationId);
+  if (!organization) throw new Error('Organization not found');
+
+  const members = await storage.getOrganizationMembers(organizationId);
+  const current = members.length;
+  const limit = organization.seatLimit || 1;
+  const percentage = limit > 0 ? (current / limit) * 100 : 0;
+  const canAddMore = current < limit;
+
+  return {
+    current,
+    limit,
+    percentage,
+    canAddMore
+  };
+}

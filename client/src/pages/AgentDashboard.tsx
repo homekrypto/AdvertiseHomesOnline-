@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { Property } from "@shared/schema";
 import { Home, Eye, Mail, Star, Plus, Settings, BarChart3, Inbox } from "lucide-react";
+import { UsageTracker } from "@/components/UsageTracker";
 
 interface AgentMetrics {
   activeListings: number;
@@ -101,6 +102,15 @@ export default function AgentDashboard() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2" data-testid="dashboard-title">Agent Dashboard</h1>
           <p className="text-muted-foreground">Manage your listings and track performance</p>
+        </div>
+
+        {/* Usage Tracking Section */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Usage Overview</h2>
+          <UsageTracker 
+            showSeats={user?.role === 'agency' || user?.role === 'expert'} 
+            organizationId={user?.organizationId}
+          />
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

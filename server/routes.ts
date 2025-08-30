@@ -115,10 +115,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      // Check listing cap
-      const agentMetrics = await storage.getAgentMetrics(userId);
-      if (agentMetrics.usedListings >= agentMetrics.listingCap) {
-        return res.status(400).json({ message: "Listing cap exceeded" });
+      // Enhanced listing cap enforcement
+      try {
+        const { enforceListingCaps } = await import('./featureFlags');
+        await enforceListingCaps(userId, storage);
+      } catch (capError: any) {
+        return res.status(403).json({ 
+          message: capError.message,
+          code: 'LISTING_LIMIT_EXCEEDED'
+        });
       }
 
       const propertyData = insertPropertySchema.parse({
@@ -600,6 +605,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error changing user tier:", error);
       res.status(500).json({ message: "Failed to change user tier" });
+    }
+  });
+
+  // Usage tracking endpoints
+  app.get('/api/usage/listings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { checkListingUsage } = await import('./featureFlags');
+      const usage = await checkListingUsage(userId, storage);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error checking listing usage:", error);
+      res.status(500).json({ message: "Failed to check listing usage" });
+    }
+  });
+
+  app.get('/api/usage/seats/:organizationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const organizationId = req.params.organizationId;
+      
+      // Check if user has access to this organization
+      if (!user || (user.organizationId !== organizationId && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { checkSeatUsage } = await import('./featureFlags');
+      const usage = await checkSeatUsage(organizationId, storage);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error checking seat usage:", error);
+      res.status(500).json({ message: "Failed to check seat usage" });
+    }
+  });
+
+  // Seat management for organizations
+  app.post('/api/organizations/:id/invite', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const organizationId = req.params.id;
+      
+      if (!user || (user.organizationId !== organizationId && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Check seat limits before inviting
+      try {
+        const { enforceSeatLimits } = await import('./featureFlags');
+        await enforceSeatLimits(organizationId, storage);
+      } catch (seatError: any) {
+        return res.status(403).json({ 
+          message: seatError.message,
+          code: 'SEAT_LIMIT_EXCEEDED'
+        });
+      }
+
+      const { email } = req.body;
+      // Here you would implement invitation logic
+      res.json({ message: "Invitation sent successfully" });
+    } catch (error) {
+      console.error("Error inviting user:", error);
+      res.status(500).json({ message: "Failed to invite user" });
     }
   });
 
