@@ -91,12 +91,19 @@ export function PropertyForm({ onSuccess, initialData, mode = 'create', property
     slug: true,
     id: true,
     createdAt: true,
-    updatedAt: true
+    updatedAt: true,
+    images: true,
+    status: true,
+    views: true,
+    saves: true,
+    featuredUntil: true,
+    country: true
   }).extend({
     // Make some fields optional for form
     description: z.string().optional(),
     sqft: z.number().optional(),
     zipCode: z.string().optional(),
+    featured: z.boolean().optional(),
   });
 
   type FormData = z.infer<typeof formSchema>;
