@@ -3,9 +3,13 @@ import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import Navigation from "@/components/Navigation";
+import AdminUserManagement from "@/components/AdminUserManagement";
+import AdminSubscriptionManagement from "@/components/AdminSubscriptionManagement";
+import AdminAnalytics from "@/components/AdminAnalytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, 
   DollarSign, 
@@ -59,7 +63,7 @@ export default function AdminDashboard() {
   }, [isAuthenticated, isLoading, user, toast]);
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ["/api/admin/metrics"],
+    queryKey: ["/api/admin/dashboard-metrics"],
     enabled: !!user && user.role === 'admin',
   });
 
@@ -69,7 +73,7 @@ export default function AdminDashboard() {
   });
 
   const { data: revenueAnalytics, isLoading: revenueLoading } = useQuery({
-    queryKey: ["/api/admin/analytics/revenue"],
+    queryKey: ["/api/admin/revenue-analytics"],
     enabled: !!user && user.role === 'admin',
   });
 
@@ -304,62 +308,84 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* User Management Section */}
+            {/* Quick Actions */}
             <Card>
               <CardHeader>
-                <CardTitle>User Management</CardTitle>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Common administrative tasks</CardDescription>
               </CardHeader>
               <CardContent>
-                {usersLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {users?.slice(0, 10).map((user: any) => (
-                      <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`user-${user.id}`}>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                            <span className="text-primary-foreground font-semibold">
-                              {(user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {user.firstName && user.lastName ? 
-                                `${user.firstName} ${user.lastName}` : 
-                                user.email || 'Unknown User'
-                              }
-                            </div>
-                            <div className="text-sm text-muted-foreground">{user.email}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <Badge variant={user.stripeSubscriptionId ? "default" : "secondary"}>
-                            {user.role}
-                          </Badge>
-                          <Badge variant={user.status === 'active' ? "default" : "destructive"}>
-                            {user.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                    {users?.length === 0 && (
-                      <div className="text-center text-muted-foreground py-8">
-                        No users found
-                      </div>
-                    )}
-                    {users && users.length > 10 && (
-                      <div className="text-center pt-4">
-                        <Button variant="outline" data-testid="view-all-users">
-                          View All {users.length} Users
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <Button variant="outline" className="h-16 flex flex-col">
+                    <Users className="h-6 w-6 mb-2" />
+                    <span>Manage Users</span>
+                  </Button>
+                  <Button variant="outline" className="h-16 flex flex-col">
+                    <CreditCard className="h-6 w-6 mb-2" />
+                    <span>View Payments</span>
+                  </Button>
+                  <Button variant="outline" className="h-16 flex flex-col">
+                    <TrendingUp className="h-6 w-6 mb-2" />
+                    <span>Analytics</span>
+                  </Button>
+                  <Button variant="outline" className="h-16 flex flex-col">
+                    <Settings className="h-6 w-6 mb-2" />
+                    <span>Settings</span>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
+            {/* Admin Tabs */}
+            <div className="mt-8">
+              <Tabs defaultValue="overview" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-5">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="users">Users</TabsTrigger>
+                  <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+                  <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                  <TabsTrigger value="properties">Properties</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="space-y-4">
+                  <div className="text-center py-8">
+                    <Shield className="h-12 w-12 text-primary mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold">System Overview</h3>
+                    <p className="text-muted-foreground">
+                      Platform metrics and system status displayed above
+                    </p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="users">
+                  <AdminUserManagement />
+                </TabsContent>
+
+                <TabsContent value="subscriptions">
+                  <AdminSubscriptionManagement />
+                </TabsContent>
+
+                <TabsContent value="analytics">
+                  <AdminAnalytics />
+                </TabsContent>
+
+                <TabsContent value="properties" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Property Management</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-8">
+                        <Home className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-lg font-medium">Property Management</p>
+                        <p className="text-muted-foreground">
+                          Advanced property management tools will be available here
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
         </div>
       </div>
