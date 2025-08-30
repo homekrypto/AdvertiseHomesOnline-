@@ -51,8 +51,21 @@ function handleAuthSuccess(req: any, res: any) {
   }
 }
 
-// Simple demo auth system
-async function createDemoUser(userInfo: { email: string; role?: string }) {
+// Simple demo auth system - fix duplicate user issues
+async function createOrGetDemoUser(userInfo: { email: string; role?: string }) {
+  // First try to get existing user by email
+  const existingUsers = await storage.getAllUsers();
+  const existingUser = existingUsers.find(u => u.email === userInfo.email);
+  
+  if (existingUser) {
+    // Update role if specified and different
+    if (userInfo.role && existingUser.role !== userInfo.role) {
+      return await storage.updateUserRole(existingUser.id, userInfo.role);
+    }
+    return existingUser;
+  }
+  
+  // Create new user
   return await storage.upsertUser({
     id: `demo-${Date.now()}`,
     email: userInfo.email,
@@ -74,11 +87,13 @@ export async function setupAuth(app: Express) {
   // Simple internal login - no external redirects
   app.get("/api/login", async (req, res) => {
     try {
-      // Create demo user and log them in
-      const demoUser = await createDemoUser({ 
+      // Get or create demo user and log them in
+      const demoUser = await createOrGetDemoUser({ 
         email: "demo@advertise-homes.online",
         role: req.query.role as string || "premium"
       });
+      
+      console.log(`Logging in user: ${demoUser.email} with role: ${demoUser.role}`);
       
       // Set user session
       req.login({ 
@@ -90,6 +105,7 @@ export async function setupAuth(app: Express) {
           return res.redirect('/');
         }
         
+        console.log('Login successful, redirecting based on role:', demoUser.role);
         // Role-based redirect after successful authentication
         handleAuthSuccess(req, res);
       });

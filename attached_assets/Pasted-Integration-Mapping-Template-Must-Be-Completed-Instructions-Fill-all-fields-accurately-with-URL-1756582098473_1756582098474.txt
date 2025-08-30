@@ -1,0 +1,51 @@
+Integration Mapping Template — Must Be Completed
+
+Instructions:
+
+Fill all fields accurately with URLs, endpoints, tables, and service names.
+
+Use this to show real connections: frontend ↔ backend ↔ database ↔ external services (Stripe, SES/SNS, storage).
+
+Include data flow and role handling for each route/feature.
+
+1️⃣ Frontend → Backend
+Feature / Page	API Endpoint	HTTP Method	Data Sent	Data Received	Role / Plan Restrictions	Notes
+Login	/api/auth/login	POST	email/password	JWT + user info	All	Must redirect to correct dashboard
+Get Started	/api/auth/register	POST	email/password/plan	JWT + user info	All	Currently redirects to homepage — fix
+Add Property	/api/properties/add	POST	Property details + media URL	Property ID + status	Agent/Agency/Expert	Validate quota limits per plan
+Browse Properties	/api/properties	GET	Filters, search	Property list	All	Should display real-time data
+Favorites / Alerts	/api/users/favorites	GET/POST	Property ID	Success / list	Free/Premium	Feature flags active
+
+(Add all remaining frontend features here.)
+
+2️⃣ Backend → Database (DynamoDB / PostgreSQL)
+Table / Collection	CRUD Endpoint	Triggered By	Data Stored / Fetched	Relations / Joins	Notes
+Users	/api/auth	Registration/Login	user_id, email, password_hash, plan, role	None	Include session/JWT
+Properties	/api/properties	Add/Edit/Delete	property_id, agent_id, media, analytics	Users, Subscriptions	Real-time updates
+Subscriptions	/api/subscriptions	Stripe webhook	subscription_id, user_id, plan, status	Users	Auto-update feature access
+Payments	/api/payments	Stripe webhook	payment_id, user_id, amount, status	Users	Include refunds, dunning
+Analytics	/api/analytics	Property views / leads	property_id, user_id, timestamp, action	Properties, Users	Must be live
+3️⃣ External Services & Middleware
+Service	Usage	Connected Feature	Notes
+Stripe	Payments & Subscriptions	All paid plans	Must update roles & feature flags in real-time
+SES / SNS	Notifications	Leads, Alerts	Must send emails/SMS on live events
+Object Storage (S3 / Replit)	Media	Property images/videos	CDN URLs must be live and accessible
+Auth / OIDC	Login / SSO	Expert/Enterprise login	Must redirect to internal dashboard, not OIDC consent page
+4️⃣ Role / Plan Routing
+Role / Plan	Allowed Features	Dashboard Route	Notes
+Free	Browse, Save Favorites, Alerts	/dashboard/free	No property addition
+Premium	Browse, Save Favorites, Alerts, Analytics	/dashboard/premium	Feature flags enforce analytics
+Agent	CRUD properties, Inbox, Analytics, Featured Credits	/dashboard/agent	Limit 5 active listings
+Agency	CRUD properties, Bulk import, Team mgmt, Lead routing	/dashboard/agency	Limit 25 listings, 10 seats
+Expert	All Agent + AI Hub, Predictive Analytics	/dashboard/expert	Full automation + predictive
+✅ Developer Deliverables:
+
+Complete all tables above with accurate, live connections.
+
+Fix “Get Started” and login redirects to go to internal dashboards.
+
+Ensure all features fetch/store live data in database — no dummy data.
+
+Include screenshots or short videos proving login → dashboard → add property works per plan.
+
+Mark any missing or incomplete tasks from the original TODO list with explanations and ETA.
