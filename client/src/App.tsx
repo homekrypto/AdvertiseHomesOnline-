@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Home from "@/pages/Home";
 import Properties from "@/pages/Properties";
@@ -26,7 +25,7 @@ function Router() {
           <Route path="/properties" component={Properties} />
           <Route path="/properties/:slug" component={PropertyDetail} />
           <Route path="/subscribe" component={Subscribe} />
-          <Route component={NotFound} />
+
         </>
       ) : (
         <>
@@ -38,7 +37,7 @@ function Router() {
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/comprehensive" component={ComprehensiveAdminDashboard} />
           <Route path="/manage/properties" component={PropertyManagement} />
-          <Route component={NotFound} />
+
         </>
       )}
     </Switch>
