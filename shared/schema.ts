@@ -125,9 +125,40 @@ export const leads = pgTable("leads", {
   message: text("message"),
   propertyId: varchar("property_id"),
   agentId: varchar("agent_id").notNull(),
-  status: varchar("status").notNull().default("new"), // new, contacted, qualified, closed
-  source: varchar("source").notNull().default("website"), // website, referral, etc.
+  organizationId: varchar("organization_id"),
+  status: varchar("status").notNull().default("new"), // new, contacted, qualified, converted, closed
+  source: varchar("source").notNull().default("website"), // website, referral, social, etc.
+  priority: varchar("priority").default("medium"), // low, medium, high, urgent
+  assignedBy: varchar("assigned_by"), // Who assigned this lead
+  assignedAt: timestamp("assigned_at"),
+  followupDate: timestamp("followup_date"),
+  score: integer("score").default(0), // Lead scoring 0-100
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Lead routing configuration for organizations
+export const leadRoutingConfig = pgTable("lead_routing_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  routingType: varchar("routing_type").notNull().default("round_robin"), // round_robin, weighted, availability
+  isActive: boolean("is_active").default(true),
+  settings: jsonb("settings"), // Configuration for routing rules
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Assignment tracking for round-robin
+export const leadAssignmentTracking = pgTable("lead_assignment_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  agentId: varchar("agent_id").notNull(),
+  lastAssignedAt: timestamp("last_assigned_at"),
+  totalAssigned: integer("total_assigned").default(0),
+  isAvailable: boolean("is_available").default(true),
+  maxLeadsPerDay: integer("max_leads_per_day"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // User favorites
@@ -191,6 +222,32 @@ export const leadsRelations = relations(leads, ({ one }) => ({
     fields: [leads.agentId],
     references: [users.id],
   }),
+  organization: one(organizations, {
+    fields: [leads.organizationId],
+    references: [organizations.id],
+  }),
+  assignedByUser: one(users, {
+    fields: [leads.assignedBy],
+    references: [users.id],
+  }),
+}));
+
+export const leadRoutingConfigRelations = relations(leadRoutingConfig, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [leadRoutingConfig.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const leadAssignmentTrackingRelations = relations(leadAssignmentTracking, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [leadAssignmentTracking.organizationId],
+    references: [organizations.id],
+  }),
+  agent: one(users, {
+    fields: [leadAssignmentTracking.agentId],
+    references: [users.id],
+  }),
 }));
 
 export const favoritesRelations = relations(favorites, ({ one }) => ({
@@ -240,6 +297,19 @@ export const insertPropertySchema = createInsertSchema(properties).omit({
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLeadRoutingConfigSchema = createInsertSchema(leadRoutingConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLeadAssignmentTrackingSchema = createInsertSchema(leadAssignmentTracking).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertFavoriteSchema = createInsertSchema(favorites).omit({
@@ -267,6 +337,10 @@ export type Property = typeof properties.$inferSelect;
 export type InsertProperty = z.infer<typeof insertPropertySchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type LeadRoutingConfig = typeof leadRoutingConfig.$inferSelect;
+export type InsertLeadRoutingConfig = z.infer<typeof insertLeadRoutingConfigSchema>;
+export type LeadAssignmentTracking = typeof leadAssignmentTracking.$inferSelect;
+export type InsertLeadAssignmentTracking = z.infer<typeof insertLeadAssignmentTrackingSchema>;
 export type Favorite = typeof favorites.$inferSelect;
 export type InsertFavorite = z.infer<typeof insertFavoriteSchema>;
 export type SavedSearch = typeof savedSearches.$inferSelect;

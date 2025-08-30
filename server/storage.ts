@@ -7,6 +7,8 @@ import {
   savedSearches,
   subscriptionPlans,
   adminActions,
+  leadRoutingConfig,
+  leadAssignmentTracking,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -16,6 +18,10 @@ import {
   type InsertProperty,
   type Lead,
   type InsertLead,
+  type LeadRoutingConfig,
+  type InsertLeadRoutingConfig,
+  type LeadAssignmentTracking,
+  type InsertLeadAssignmentTracking,
   type Favorite,
   type InsertFavorite,
   type SavedSearch,
@@ -589,12 +595,128 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Lead Routing (Agency/Expert)
-  async assignLead(leadId: string, agentId: string): Promise<Lead> {
+  async assignLead(leadId: string, agentId: string, assignedBy?: string): Promise<Lead> {
     const [lead] = await db
       .update(leads)
-      .set({ agentId })
+      .set({ 
+        agentId,
+        assignedBy,
+        assignedAt: new Date(),
+        updatedAt: new Date()
+      })
       .where(eq(leads.id, leadId))
       .returning();
+    
+    // Update assignment tracking
+    await this.updateAssignmentTracking(agentId, lead.organizationId);
+    
+    return lead;
+  }
+
+  // Lead Routing Configuration
+  async createLeadRoutingConfig(configData: InsertLeadRoutingConfig): Promise<LeadRoutingConfig> {
+    const [config] = await db.insert(leadRoutingConfig).values(configData).returning();
+    return config;
+  }
+
+  async getLeadRoutingConfig(organizationId: string): Promise<LeadRoutingConfig | undefined> {
+    const [config] = await db.select().from(leadRoutingConfig)
+      .where(eq(leadRoutingConfig.organizationId, organizationId))
+      .where(eq(leadRoutingConfig.isActive, true));
+    return config;
+  }
+
+  async updateLeadRoutingConfig(organizationId: string, updates: Partial<LeadRoutingConfig>): Promise<LeadRoutingConfig> {
+    const [config] = await db
+      .update(leadRoutingConfig)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(leadRoutingConfig.organizationId, organizationId))
+      .returning();
+    return config;
+  }
+
+  // Assignment Tracking
+  async createAssignmentTracking(trackingData: InsertLeadAssignmentTracking): Promise<LeadAssignmentTracking> {
+    const [tracking] = await db.insert(leadAssignmentTracking).values(trackingData).returning();
+    return tracking;
+  }
+
+  async getAssignmentTracking(organizationId: string): Promise<LeadAssignmentTracking[]> {
+    return db.select().from(leadAssignmentTracking)
+      .where(eq(leadAssignmentTracking.organizationId, organizationId))
+      .where(eq(leadAssignmentTracking.isAvailable, true))
+      .orderBy(leadAssignmentTracking.lastAssignedAt);
+  }
+
+  async updateAssignmentTracking(agentId: string, organizationId?: string): Promise<void> {
+    if (!organizationId) return;
+    
+    // Upsert assignment tracking
+    await db.insert(leadAssignmentTracking)
+      .values({
+        organizationId,
+        agentId,
+        lastAssignedAt: new Date(),
+        totalAssigned: 1,
+        updatedAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: [leadAssignmentTracking.organizationId, leadAssignmentTracking.agentId],
+        set: {
+          lastAssignedAt: new Date(),
+          totalAssigned: sql`${leadAssignmentTracking.totalAssigned} + 1`,
+          updatedAt: new Date()
+        }
+      });
+  }
+
+  // Round-Robin Assignment Logic
+  async getNextAgentForAssignment(organizationId: string): Promise<string | null> {
+    const config = await this.getLeadRoutingConfig(organizationId);
+    if (!config || !config.isActive) {
+      return null;
+    }
+
+    // Get available agents in the organization
+    const availableAgents = await db.select()
+      .from(users)
+      .leftJoin(leadAssignmentTracking, eq(users.id, leadAssignmentTracking.agentId))
+      .where(eq(users.organizationId, organizationId))
+      .where(eq(users.role, 'agent'))
+      .orderBy(leadAssignmentTracking.lastAssignedAt);
+
+    if (availableAgents.length === 0) {
+      return null;
+    }
+
+    // Round-robin: return agent with oldest (or null) lastAssignedAt
+    const nextAgent = availableAgents[0];
+    return nextAgent.users.id;
+  }
+
+  // Auto-assign lead with routing logic
+  async autoAssignLead(leadData: InsertLead, organizationId?: string): Promise<Lead> {
+    let assignedAgentId = leadData.agentId;
+    
+    if (organizationId) {
+      const nextAgent = await this.getNextAgentForAssignment(organizationId);
+      if (nextAgent) {
+        assignedAgentId = nextAgent;
+      }
+    }
+
+    const [lead] = await db.insert(leads).values({
+      ...leadData,
+      agentId: assignedAgentId,
+      organizationId,
+      assignedAt: new Date()
+    }).returning();
+
+    // Update assignment tracking
+    if (organizationId) {
+      await this.updateAssignmentTracking(assignedAgentId, organizationId);
+    }
+
     return lead;
   }
 

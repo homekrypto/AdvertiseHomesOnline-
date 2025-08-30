@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { Property } from "@shared/schema";
-import { Home, Eye, Mail, Star, Plus, Settings, BarChart3, Inbox } from "lucide-react";
+import { Home, Eye, Mail, Star, Plus, Settings, BarChart3, Inbox, Users, Route } from "lucide-react";
 import { UsageTracker } from "@/components/UsageTracker";
+import { LeadRoutingDashboard } from "@/components/LeadRoutingDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AgentMetrics {
   activeListings: number;
@@ -94,26 +96,54 @@ export default function AgentDashboard() {
   const agentMetrics = metrics as AgentMetrics;
   const listingCapPercentage = agentMetrics ? (agentMetrics.usedListings / agentMetrics.listingCap) * 100 : 0;
 
+  const isAgencyOrExpert = user && ['agency', 'expert', 'admin'].includes(user.role);
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2" data-testid="dashboard-title">Agent Dashboard</h1>
-          <p className="text-muted-foreground">Manage your listings and track performance</p>
+          <h1 className="text-4xl font-bold mb-2" data-testid="dashboard-title">
+            {isAgencyOrExpert ? 'Agency Dashboard' : 'Agent Dashboard'}
+          </h1>
+          <p className="text-muted-foreground">
+            {isAgencyOrExpert 
+              ? 'Manage your team, track performance, and optimize lead routing'
+              : 'Manage your listings and track performance'
+            }
+          </p>
         </div>
 
-        {/* Usage Tracking Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Usage Overview</h2>
-          <UsageTracker 
-            showSeats={user?.role === 'agency' || user?.role === 'expert'} 
-            organizationId={user?.organizationId}
-          />
-        </div>
+        {isAgencyOrExpert ? (
+          // Agency/Expert Dashboard with tabs
+          <Tabs defaultValue="overview" className="space-y-8">
+            <TabsList className="grid w-full grid-cols-3" data-testid="dashboard-tabs">
+              <TabsTrigger value="overview" data-testid="tab-overview">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="routing" data-testid="tab-routing">
+                <Route className="w-4 h-4 mr-2" />
+                Lead Routing
+              </TabsTrigger>
+              <TabsTrigger value="team" data-testid="tab-team">
+                <Users className="w-4 h-4 mr-2" />
+                Team Management
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-8">
+              {/* Usage Tracking Section for Agency/Expert */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4">Usage Overview</h2>
+                <UsageTracker 
+                  showSeats={true} 
+                  organizationId={user?.organizationId || undefined}
+                />
+              </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <Card>
@@ -439,7 +469,40 @@ export default function AgentDashboard() {
               </CardContent>
             </Card>
           </div>
-        </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="routing" className="space-y-8">
+              <LeadRoutingDashboard />
+            </TabsContent>
+
+            <TabsContent value="team" className="space-y-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Team management features coming soon...</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          // Individual Agent Dashboard (existing content)
+          <div>
+            {/* Usage Tracking Section */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Usage Overview</h2>
+              <UsageTracker 
+                showSeats={false} 
+                organizationId={user?.organizationId || undefined}
+              />
+            </div>
+        
+            {/* Existing agent dashboard content continues here... */}
+          </div>
+        )}
+
       </div>
     </div>
   );

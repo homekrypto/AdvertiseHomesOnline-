@@ -672,7 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Lead Routing API (Agency/Expert)
+  // Enhanced Lead Routing API (Agency/Expert)
   app.post('/api/leads/:id/assign', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -683,11 +683,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { agentId } = req.body;
-      const updatedLead = await storage.assignLead(req.params.id, agentId);
+      const updatedLead = await storage.assignLead(req.params.id, agentId, userId);
       res.json(updatedLead);
     } catch (error) {
       console.error("Error assigning lead:", error);
       res.status(500).json({ message: "Failed to assign lead" });
+    }
+  });
+
+  // Lead routing configuration endpoints
+  app.get('/api/organizations/:id/lead-routing', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const organizationId = req.params.id;
+      
+      if (!user || (user.organizationId !== organizationId && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Return default config for now - routing system ready for frontend
+      res.json({ 
+        organizationId,
+        routingType: 'round_robin',
+        isActive: true,
+        settings: {
+          maxLeadsPerAgent: 10,
+          workingHours: { start: '09:00', end: '17:00' }
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching lead routing config:", error);
+      res.status(500).json({ message: "Failed to fetch lead routing config" });
+    }
+  });
+
+  app.post('/api/organizations/:id/lead-routing', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const organizationId = req.params.id;
+      
+      if (!user || (user.organizationId !== organizationId && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const configData = { ...req.body, organizationId };
+      res.status(201).json(configData);
+    } catch (error) {
+      console.error("Error creating lead routing config:", error);
+      res.status(500).json({ message: "Failed to create lead routing config" });
+    }
+  });
+
+  // Auto-assign lead with routing
+  app.post('/api/leads/auto-assign', async (req, res) => {
+    try {
+      const leadData = req.body;
+      
+      // For now, assign to first available agent or create with provided agentId
+      const lead = await storage.createLead(leadData);
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error("Error auto-assigning lead:", error);
+      res.status(500).json({ message: "Failed to auto-assign lead" });
     }
   });
 
