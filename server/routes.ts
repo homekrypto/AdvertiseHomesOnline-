@@ -34,6 +34,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Platform statistics - real data only
+  app.get('/api/platform/stats', async (req, res) => {
+    try {
+      const stats = await storage.getPlatformStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching platform stats:", error);
+      res.status(500).json({ message: "Failed to fetch platform stats" });
+    }
+  });
+
   // Property routes
   app.get('/api/properties', async (req, res) => {
     try {
@@ -322,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json({
           subscriptionId: subscription.id,
-          clientSecret: (invoice.payment_intent as any)?.client_secret,
+          clientSecret: (invoice as any).payment_intent?.client_secret,
         });
         return;
       }

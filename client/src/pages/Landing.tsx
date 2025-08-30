@@ -6,6 +6,13 @@ import PricingCard from "@/components/PricingCard";
 import { useQuery } from "@tanstack/react-query";
 import type { Property } from "@shared/schema";
 
+interface PlatformStats {
+  totalProperties: number;
+  activeAgents: number;
+  totalValueSold: number;
+  newThisMonth: number;
+}
+
 export default function Landing() {
   const { data: featuredProperties, isLoading: propertiesLoading } = useQuery({
     queryKey: ["/api/properties", { featured: true, limit: 6 }],
@@ -14,6 +21,15 @@ export default function Landing() {
       const response = await fetch(`/api/properties?${params}`);
       if (!response.ok) throw new Error('Failed to fetch properties');
       return response.json() as Promise<Property[]>;
+    }
+  });
+
+  const { data: platformStats, isLoading: statsLoading } = useQuery({
+    queryKey: ["/api/platform/stats"],
+    queryFn: async () => {
+      const response = await fetch('/api/platform/stats');
+      if (!response.ok) throw new Error('Failed to fetch platform stats');
+      return response.json() as Promise<PlatformStats>;
     }
   });
 
@@ -34,16 +50,34 @@ export default function Landing() {
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
             <div className="stats-card p-6 rounded-lg">
-              <div className="text-3xl font-bold text-foreground mb-2" data-testid="stat-properties">2.4M+</div>
+              <div className="text-3xl font-bold text-foreground mb-2" data-testid="stat-properties">
+                {statsLoading ? (
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full inline-block" />
+                ) : (
+                  platformStats?.totalProperties.toLocaleString() || '0'
+                )}
+              </div>
               <div className="text-muted-foreground">Active Properties</div>
             </div>
             <div className="stats-card p-6 rounded-lg">
-              <div className="text-3xl font-bold text-foreground mb-2" data-testid="stat-agents">50K+</div>
+              <div className="text-3xl font-bold text-foreground mb-2" data-testid="stat-agents">
+                {statsLoading ? (
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full inline-block" />
+                ) : (
+                  platformStats?.activeAgents.toLocaleString() || '0'
+                )}
+              </div>
               <div className="text-muted-foreground">Active Agents</div>
             </div>
             <div className="stats-card p-6 rounded-lg">
-              <div className="text-3xl font-bold text-foreground mb-2" data-testid="stat-sold">$2.8B</div>
-              <div className="text-muted-foreground">Properties Sold</div>
+              <div className="text-3xl font-bold text-foreground mb-2" data-testid="stat-sold">
+                {statsLoading ? (
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full inline-block" />
+                ) : (
+                  `$${(platformStats?.totalValueSold || 0).toLocaleString()}`
+                )}
+              </div>
+              <div className="text-muted-foreground">Total Value Sold</div>
             </div>
           </div>
         </div>

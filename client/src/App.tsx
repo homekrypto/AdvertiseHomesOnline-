@@ -14,18 +14,29 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import Subscribe from "@/pages/Subscribe";
 
 function Router() {
-  // Temporarily disable auth checking to fix the infinite loop
-  const isAuthenticated = false;
+  const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/properties" component={Properties} />
-      <Route path="/properties/:slug" component={PropertyDetail} />
-      <Route path="/subscribe" component={Subscribe} />
-      <Route path="/agent/dashboard" component={AgentDashboard} />
-      <Route path="/admin/dashboard" component={AdminDashboard} />
-      <Route component={NotFound} />
+      {isLoading || !isAuthenticated ? (
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="/properties" component={Properties} />
+          <Route path="/properties/:slug" component={PropertyDetail} />
+          <Route path="/subscribe" component={Subscribe} />
+          <Route component={NotFound} />
+        </>
+      ) : (
+        <>
+          <Route path="/" component={Home} />
+          <Route path="/properties" component={Properties} />
+          <Route path="/properties/:slug" component={PropertyDetail} />
+          <Route path="/subscribe" component={Subscribe} />
+          <Route path="/agent/dashboard" component={AgentDashboard} />
+          <Route path="/admin/dashboard" component={AdminDashboard} />
+          <Route component={NotFound} />
+        </>
+      )}
     </Switch>
   );
 }

@@ -73,6 +73,7 @@ export interface IStorage {
   // Analytics
   getDashboardMetrics(): Promise<DashboardMetrics>;
   getAgentMetrics(agentId: string): Promise<AgentMetrics>;
+  getPlatformStats(): Promise<PlatformStats>;
 }
 
 export interface PropertyFilters {
@@ -111,6 +112,13 @@ export interface AgentMetrics {
   featuredCredits: number;
   listingCap: number;
   usedListings: number;
+}
+
+export interface PlatformStats {
+  totalProperties: number;
+  activeAgents: number;
+  totalValueSold: number;
+  newThisMonth: number;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -280,9 +288,21 @@ export class DatabaseStorage implements IStorage {
 
     // Sorting
     if (filters.sortBy) {
-      const sortField = properties[filters.sortBy as keyof typeof properties];
-      if (sortField) {
-        query = query.orderBy(filters.sortOrder === 'desc' ? desc(sortField) : asc(sortField));
+      switch (filters.sortBy) {
+        case 'price':
+          query = query.orderBy(filters.sortOrder === 'desc' ? desc(properties.price) : asc(properties.price));
+          break;
+        case 'createdAt':
+          query = query.orderBy(filters.sortOrder === 'desc' ? desc(properties.createdAt) : asc(properties.createdAt));
+          break;
+        case 'views':
+          query = query.orderBy(filters.sortOrder === 'desc' ? desc(properties.views) : asc(properties.views));
+          break;
+        case 'saves':
+          query = query.orderBy(filters.sortOrder === 'desc' ? desc(properties.saves) : asc(properties.saves));
+          break;
+        default:
+          query = query.orderBy(desc(properties.createdAt));
       }
     } else {
       query = query.orderBy(desc(properties.createdAt));
@@ -489,6 +509,37 @@ export class DatabaseStorage implements IStorage {
       featuredCredits: 5, // This would come from subscription or organization data
       listingCap,
       usedListings: agentProperties.length,
+    };
+  }
+
+  async getPlatformStats(): Promise<PlatformStats> {
+    // Get total active properties count
+    const [totalPropertiesResult] = await db.select({ count: count() }).from(properties)
+      .where(eq(properties.status, "active"));
+
+    // Get active agents count (users with agent, agency, expert roles)
+    const [activeAgentsResult] = await db.select({ count: count() }).from(users)
+      .where(sql`${users.role} IN ('agent', 'agency', 'expert')`);
+
+    // Get total value of sold properties (sum of prices for sold status)
+    const [totalValueResult] = await db.select({ 
+      total: sql<number>`COALESCE(SUM(${properties.price}), 0)` 
+    }).from(properties)
+      .where(eq(properties.status, "sold"));
+
+    // Get new properties this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const [newThisMonthResult] = await db.select({ count: count() }).from(properties)
+      .where(sql`${properties.createdAt} >= ${startOfMonth}`);
+
+    return {
+      totalProperties: totalPropertiesResult.count,
+      activeAgents: activeAgentsResult.count,
+      totalValueSold: totalValueResult.total || 0,
+      newThisMonth: newThisMonthResult.count,
     };
   }
 }
