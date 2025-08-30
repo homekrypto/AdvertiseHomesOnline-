@@ -177,13 +177,20 @@ export async function setupAuth(app: Express) {
     try {
       const { email, password } = req.body;
       
-      if (!email) {
-        return res.status(400).json({ error: "Email required" });
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
       }
       
       // Get user by email
       const user = await storage.getUserByEmail(email);
       if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      // Simple password check (in production, use bcrypt)
+      console.log(`Password check: user.password='${user.password}' vs provided='${password}'`);
+      if (user.password !== password) {
+        console.log('Password mismatch - denying login');
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
@@ -199,9 +206,11 @@ export async function setupAuth(app: Express) {
           return res.status(500).json({ error: "Login failed" });
         }
         
+        // Remove password from response for security
+        const { password: _, ...userWithoutPassword } = user;
         res.json({ 
           message: "Login successful", 
-          user: user,
+          user: userWithoutPassword,
           redirectUrl: getRedirectUrl(user.role)
         });
       });

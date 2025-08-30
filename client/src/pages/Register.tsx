@@ -12,6 +12,7 @@ import { Link } from "wouter";
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   role: z.enum(["free", "premium", "agent", "agency", "expert"], {
@@ -29,6 +30,7 @@ export default function Register() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
+      password: "",
       firstName: "",
       lastName: "",
       role: "free"
@@ -119,6 +121,20 @@ export default function Register() {
               />
               {form.formState.errors.email && (
                 <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                {...form.register("password")}
+                placeholder="Create a secure password"
+                data-testid="input-password"
+              />
+              {form.formState.errors.password && (
+                <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
               )}
             </div>
 

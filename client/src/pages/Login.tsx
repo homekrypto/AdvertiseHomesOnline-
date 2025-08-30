@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address")
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters")
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -22,7 +23,8 @@ export default function Login() {
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: ""
+      email: "",
+      password: ""
     }
   });
 
@@ -86,6 +88,20 @@ export default function Login() {
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                {...form.register("password")}
+                placeholder="Enter your password"
+                data-testid="input-password"
+              />
+              {form.formState.errors.password && (
+                <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+              )}
+            </div>
+
             <Button 
               type="submit" 
               className="w-full" 
@@ -104,7 +120,7 @@ export default function Login() {
 
             <div className="border-t pt-4">
               <p className="text-xs text-muted-foreground text-center">
-                For demo purposes, you can sign in with any existing email:
+                For demo, use password "demo123" with these emails:
                 <br />
                 <span className="font-medium">sarah.johnson@realty.com</span> (Agent)
                 <br />
