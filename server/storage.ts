@@ -541,13 +541,33 @@ export class DatabaseStorage implements IStorage {
       usersByRole[result.role] = result.count;
     });
 
+    // Calculate real metrics from database
+    const subscribedUsers = await db.select({ count: count() }).from(users)
+      .where(sql`${users.stripeSubscriptionId} IS NOT NULL`);
+    
+    const totalRevenue = subscribedUsers[0].count * 49; // Average subscription price
+    const conversionRate = totalUsersResult.count > 0 
+      ? (subscribedUsers[0].count / totalUsersResult.count) * 100 
+      : 0;
+    
+    // Calculate monthly growth
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    
+    const [recentUsersResult] = await db.select({ count: count() }).from(users)
+      .where(sql`${users.createdAt} >= ${oneMonthAgo}`);
+    
+    const monthlyGrowth = totalUsersResult.count > 0 
+      ? (recentUsersResult.count / totalUsersResult.count) * 100 
+      : 0;
+
     return {
       totalUsers: totalUsersResult.count,
-      totalRevenue: 124750, // This would come from Stripe API or payment records
+      totalRevenue,
       activeListings: activeListingsResult.count,
-      conversionRate: 3.2, // Would be calculated from actual conversion data
+      conversionRate,
       usersByRole,
-      monthlyGrowth: 12, // Would be calculated from time-based user data
+      monthlyGrowth,
     };
   }
 
@@ -649,13 +669,45 @@ export class DatabaseStorage implements IStorage {
     const monthlyRevenue = monthlyRevenueResult.total || 0;
     const totalUsers = totalUsersResult.count;
 
+    // Calculate churn rate from database
+    const startOfLastMonth = new Date();
+    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 2);
+    startOfLastMonth.setDate(1);
+    const endOfLastMonth = new Date();
+    endOfLastMonth.setMonth(endOfLastMonth.getMonth() - 1);
+    endOfLastMonth.setDate(0);
+    
+    const [lastMonthSubscriptions] = await db.select({ count: count() }).from(users)
+      .where(and(
+        sql`${users.stripeSubscriptionId} IS NOT NULL`,
+        sql`${users.createdAt} >= ${startOfLastMonth}`,
+        sql`${users.createdAt} <= ${endOfLastMonth}`
+      ));
+    
+    const churnRate = lastMonthSubscriptions.count > 0 
+      ? Math.max(0, (lastMonthSubscriptions.count - monthlyRevenue) / lastMonthSubscriptions.count * 100)
+      : 0;
+    
+    // Calculate revenue growth
+    const [twoMonthsAgoRevenue] = await db.select({ 
+      total: sql<number>`COUNT(*) * 49`
+    }).from(users)
+      .where(and(
+        sql`${users.stripeSubscriptionId} IS NOT NULL`,
+        sql`${users.createdAt} <= ${startOfLastMonth}`
+      ));
+    
+    const revenueGrowth = twoMonthsAgoRevenue.total > 0 
+      ? ((totalRevenue - twoMonthsAgoRevenue.total) / twoMonthsAgoRevenue.total) * 100
+      : 0;
+
     return {
       totalRevenue,
       monthlyRevenue,
       arpu: totalUsers > 0 ? totalRevenue / totalUsers : 0,
-      churnRate: 2.5,
+      churnRate,
       subscriptionsByTier: tierCounts,
-      revenueGrowth: 15,
+      revenueGrowth,
     };
   }
 
@@ -786,40 +838,96 @@ export class DatabaseStorage implements IStorage {
 
   async getUserBehaviorData() {
     const allUsers = await this.getAllUsers();
-    return allUsers.slice(0, 20).map(u => ({
-      id: u.id,
-      userId: u.id,
-      userName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email?.split('@')[0] || 'User',
-      userEmail: u.email,
-      propertiesViewed: Math.floor(Math.random() * 50) + 1,
-      timeSpent: Math.floor(Math.random() * 120) + 10,
-      lastActivity: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-      conversionStage: u.stripeSubscriptionId ? 'converted' : ['browsing', 'engaged', 'trial'][Math.floor(Math.random() * 3)],
-      actions: ['viewed_property', 'saved_search', 'contacted_agent']
-    }));
+    const userBehavior = await Promise.all(
+      allUsers.slice(0, 20).map(async (u) => {
+        // Get user's property views (from favorites as a proxy)
+        const [favoritesCount] = await db.select({ count: count() }).from(favorites)
+          .where(eq(favorites.userId, u.id));
+        
+        // Get user's saved searches
+        const [savedSearchesCount] = await db.select({ count: count() }).from(savedSearches)
+          .where(eq(savedSearches.userId, u.id));
+        
+        // Determine conversion stage based on actual data
+        const conversionStage = u.stripeSubscriptionId 
+          ? 'converted' 
+          : favoritesCount.count > 5 
+            ? 'engaged' 
+            : favoritesCount.count > 0 
+              ? 'browsing' 
+              : 'new';
+        
+        return {
+          id: u.id,
+          userId: u.id,
+          userName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email?.split('@')[0] || 'User',
+          userEmail: u.email,
+          propertiesViewed: favoritesCount.count + savedSearchesCount.count,
+          timeSpent: Math.floor((favoritesCount.count * 5) + (savedSearchesCount.count * 3)), // Estimate based on activity
+          lastActivity: u.updatedAt || u.createdAt,
+          conversionStage,
+          actions: [
+            ...(favoritesCount.count > 0 ? ['viewed_property'] : []),
+            ...(savedSearchesCount.count > 0 ? ['saved_search'] : []),
+            ...(u.stripeSubscriptionId ? ['subscribed'] : [])
+          ]
+        };
+      })
+    );
+    return userBehavior;
   }
 
   async getAnalyticsData() {
     const allUsers = await this.getAllUsers();
     const allProperties = await this.getProperties();
     const subscriptions = allUsers.filter(u => u.stripeSubscriptionId);
+    
+    // Calculate revenue based on actual user roles
     const totalRevenue = subscriptions.reduce((sum, user) => {
       const amount = user.role === 'premium' ? 29 : user.role === 'agent' ? 49 : user.role === 'agency' ? 99 : 199;
       return sum + amount;
     }, 0);
+    
+    // Calculate monthly revenue from users created this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    const monthlySubscriptions = subscriptions.filter(u => new Date(u.createdAt) >= startOfMonth);
+    const monthlyRevenue = monthlySubscriptions.reduce((sum, user) => {
+      const amount = user.role === 'premium' ? 29 : user.role === 'agent' ? 49 : user.role === 'agency' ? 99 : 199;
+      return sum + amount;
+    }, 0);
+    
+    // Calculate actual growth rates
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const newUsers = allUsers.filter(u => new Date(u.createdAt) >= oneMonthAgo).length;
+    const userGrowth = allUsers.length > 0 ? (newUsers / allUsers.length) * 100 : 0;
+    
+    const lastMonthRevenue = totalRevenue - monthlyRevenue;
+    const revenueGrowth = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
+    
+    // Calculate conversion rates based on actual user progression
+    const freeUsers = allUsers.filter(u => u.role === 'free').length;
+    const premiumUsers = allUsers.filter(u => u.role === 'premium').length;
+    const agentUsers = allUsers.filter(u => u.role === 'agent').length;
+    const agencyUsers = allUsers.filter(u => u.role === 'agency').length;
+    
+    const freeTopremium = freeUsers > 0 ? (premiumUsers / freeUsers) * 100 : 0;
+    const premiumToAgent = premiumUsers > 0 ? (agentUsers / premiumUsers) * 100 : 0;
+    const agentToAgency = agentUsers > 0 ? (agencyUsers / agentUsers) * 100 : 0;
 
     return {
       revenue: {
         totalRevenue,
-        monthlyRevenue: totalRevenue,
-        revenueGrowth: 12.5,
+        monthlyRevenue,
+        revenueGrowth,
         arpu: allUsers.length > 0 ? totalRevenue / allUsers.length : 0
       },
       users: {
         totalUsers: allUsers.length,
         activeUsers: allUsers.filter(u => u.status === 'active').length,
-        newUsers: Math.floor(allUsers.length * 0.15),
-        userGrowth: 8.3
+        newUsers,
+        userGrowth
       },
       properties: {
         totalProperties: allProperties.length,
@@ -828,9 +936,9 @@ export class DatabaseStorage implements IStorage {
         totalSaves: allProperties.reduce((sum, p) => sum + (p.saves || 0), 0)
       },
       conversion: {
-        freeTopremium: 3.2,
-        premiumToAgent: 12.8,
-        agentToAgency: 8.1,
+        freeTopremium,
+        premiumToAgent,
+        agentToAgency,
         overallConversion: subscriptions.length > 0 ? (subscriptions.length / allUsers.length) * 100 : 0
       }
     };
