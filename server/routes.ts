@@ -1257,6 +1257,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUserStripeInfo(userId, customer.id, subscription.id);
 
       const invoice = subscription.latest_invoice as any;
+      
+      if (!invoice || !invoice.payment_intent || !invoice.payment_intent.client_secret) {
+        console.error('Missing payment intent data:', {
+          invoice: !!invoice,
+          payment_intent: !!invoice?.payment_intent,
+          client_secret: !!invoice?.payment_intent?.client_secret
+        });
+        return res.status(500).json({ 
+          error: "Failed to create payment intent", 
+          subscriptionId: subscription.id
+        });
+      }
+      
       res.json({
         subscriptionId: subscription.id,
         clientSecret: invoice.payment_intent.client_secret,
