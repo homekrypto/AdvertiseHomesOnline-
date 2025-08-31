@@ -13,14 +13,13 @@ export function getSession() {
   return session({
     secret: process.env.SESSION_SECRET || 'dev-secret-key-change-in-production',
     // No store = uses memory store
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Force session save
+    saveUninitialized: true, // Save all sessions
     cookie: {
-      httpOnly: false, // TEMP: Allow JS access for debugging
-      secure: false,
+      httpOnly: false, // Allow JS access
+      secure: false, // No HTTPS required
       maxAge: sessionTtl,
-      sameSite: false, // TEMP: Disable sameSite for testing
-      domain: undefined, // Let browser decide
+      sameSite: 'none', // Most permissive
       path: '/',
     },
     name: 'connect.sid',
@@ -224,6 +223,11 @@ export async function setupAuth(app: Express) {
         console.log('Session data:', req.session);
         console.log('req.user:', req.user);
         console.log('req.isAuthenticated():', req.isAuthenticated());
+        
+        // FORCE EXPLICIT COOKIE SETTING
+        const sessionCookie = `connect.sid=${req.sessionID}; Path=/; HttpOnly=false; SameSite=None; Max-Age=${7 * 24 * 60 * 60}`;
+        res.setHeader('Set-Cookie', sessionCookie);
+        console.log('🍪 FORCING COOKIE:', sessionCookie);
         
         // Remove password from response for security
         const { password: _, ...userWithoutPassword } = user;
