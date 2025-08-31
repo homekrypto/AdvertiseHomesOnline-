@@ -419,15 +419,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark user as verified in production database
       const verifiedUser = await storage.verifyUserEmail(userId);
 
-      res.json({
-        success: true,
-        message: "Email verified successfully. You can now proceed to payment.",
-        user: {
-          id: verifiedUser.id,
-          email: verifiedUser.email,
-          verified: verifiedUser.verified,
-          tier: verifiedUser.role,
+      console.log(`Email verified for user: ${verifiedUser.email} (Role: ${verifiedUser.role})`);
+      
+      // CRITICAL FIX: Establish user session after verification (like login endpoint)
+      const userForSession = { 
+        claims: { sub: verifiedUser.id }, 
+        dbUser: verifiedUser 
+      };
+      
+      console.log('About to establish session for verified user:', userForSession);
+      
+      req.login(userForSession, (err: any) => {
+        if (err) {
+          console.error('Session establishment error after verification:', err);
+          return res.status(500).json({ message: "Verification successful but login failed" });
         }
+        
+        console.log('Verification successful, session established');
+        console.log('req.user after verification:', req.user);
+        console.log('req.isAuthenticated():', req.isAuthenticated());
+        
+        res.json({
+          success: true,
+          message: "Email verified successfully. You can now proceed to payment.",
+          user: {
+            id: verifiedUser.id,
+            email: verifiedUser.email,
+            verified: verifiedUser.verified,
+            tier: verifiedUser.role,
+          }
+        });
       });
 
     } catch (error) {
@@ -447,92 +468,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Step 4: Create Payment Intent for Selected Tier (Real Stripe integration)
-  app.post('/api/create-subscription', async (req, res) => {
-    try {
-      const { userId, planId, billingInterval = 'monthly' } = req.body;
-
-      if (!userId || !planId) {
-        return res.status(400).json({ message: "User ID and plan ID are required" });
-      }
-
-      // Get user from production database
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      if (!user.verified) {
-        return res.status(400).json({ message: "Email must be verified before subscribing" });
-      }
-
-      // Get plan from production database
-      const plan = await storage.getSubscriptionPlan(planId);
-      if (!plan) {
-        return res.status(404).json({ message: "Subscription plan not found" });
-      }
-
-      // Check if user already has a subscription
-      if (user.stripeSubscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
-        const invoice = await stripe.invoices.retrieve(subscription.latest_invoice as string, {
-          expand: ['payment_intent'],
-        });
-        
-        res.json({
-          subscriptionId: subscription.id,
-          clientSecret: (invoice.payment_intent as any)?.client_secret,
-          existingSubscription: true,
-        });
-        return;
-      }
-
-      // Create Stripe customer
-      if (!user.email) {
-        return res.status(400).json({ message: "User email is required for subscription" });
-      }
-
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-        metadata: {
-          userId: user.id,
-          planId: plan.id,
-        }
-      });
-
-      // Determine the correct Stripe price ID based on billing interval
-      const stripePriceId = billingInterval === 'yearly' && plan.annualStripePriceId 
-        ? plan.annualStripePriceId 
-        : plan.stripePriceId;
-
-      // Create Stripe subscription
-      const subscription = await stripe.subscriptions.create({
-        customer: customer.id,
-        items: [{
-          price: stripePriceId,
-        }],
-        payment_behavior: 'default_incomplete',
-        expand: ['latest_invoice.payment_intent'],
-      });
-
-      // Update user with Stripe IDs and billing interval in production database
-      await storage.updateUserStripeInfo(user.id, customer.id, subscription.id);
-      await storage.updateUserBillingInterval(user.id, billingInterval);
-
-      res.json({
-        subscriptionId: subscription.id,
-        clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
-        planName: plan.name,
-        amount: plan.price,
-        currency: 'USD',
-      });
-
-    } catch (error) {
-      console.error("Error creating subscription:", error);
-      res.status(500).json({ message: "Failed to create subscription" });
-    }
-  });
 
   // Step 5: Confirm Payment Success and Redirect
   app.post('/api/confirm-subscription', async (req, res) => {
@@ -1269,7 +1204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/create-subscription', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { planId } = req.body;
+      const { planId, billingInterval = 'monthly' } = req.body;
       
       let user = await storage.getUser(userId);
       if (!user) {
@@ -1303,10 +1238,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: `${user.firstName} ${user.lastName}`.trim(),
       });
 
+      // Determine the correct Stripe price ID based on billing interval
+      const stripePriceId = billingInterval === 'yearly' && plan.annualStripePriceId 
+        ? plan.annualStripePriceId 
+        : plan.stripePriceId;
+
+      console.log(`Creating subscription for user ${user.email} with price: ${stripePriceId}`);
+
       const subscription = await stripe.subscriptions.create({
         customer: customer.id,
         items: [{
-          price: plan.stripePriceId,
+          price: stripePriceId,
         }],
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
@@ -1321,6 +1263,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error creating subscription:", error);
+      console.log("Error code:", error.code);
+      console.log("Error param:", error.param);
+      console.log("Error type:", error.type);
+      
+      // Handle specific Stripe price missing error
+      if (error.code === 'resource_missing' && error.param === 'items[0][price]') {
+        const { planId, billingInterval = 'monthly' } = req.body;
+        const stripePriceId = billingInterval === 'yearly' ? `price_${planId}_yearly` : `price_${planId}_monthly`;
+        const message = `Stripe price '${stripePriceId}' not found. Please create the required Stripe prices in your dashboard first:\n\n` +
+          `1. Login to your Stripe dashboard\n` +
+          `2. Go to Products → Prices\n` +
+          `3. Create price with ID: '${stripePriceId}'\n` +
+          `4. Set amount and billing interval correctly\n\n` +
+          `Then try again.`;
+        
+        return res.status(400).json({ 
+          message: "Stripe Price Configuration Required",
+          details: message,
+          stripePriceId: stripePriceId,
+          stripeError: error.message
+        });
+      }
+      
+      // Handle other Stripe errors
+      if (error.type === 'StripeInvalidRequestError') {
+        return res.status(400).json({ 
+          message: "Stripe configuration error", 
+          details: error.message 
+        });
+      }
+      
       res.status(400).json({ error: error.message });
     }
   });
