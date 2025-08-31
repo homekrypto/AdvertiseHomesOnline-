@@ -16,10 +16,12 @@ export function getSession() {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      httpOnly: true,
+      httpOnly: false, // TEMP: Allow JS access for debugging
       secure: false,
       maxAge: sessionTtl,
-      sameSite: 'lax',
+      sameSite: false, // TEMP: Disable sameSite for testing
+      domain: undefined, // Let browser decide
+      path: '/',
     },
     name: 'connect.sid',
   });
@@ -251,7 +253,7 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   console.log('=== AUTH CHECK DEBUG ===');
   console.log('Session ID:', req.sessionID);
-  console.log('Session exists:', !!req.session);
+  console.log('Cookies received:', req.headers.cookie);
   console.log('Session data:', req.session);
   console.log('isAuthenticated():', req.isAuthenticated());
   console.log('User present:', !!req.user);
