@@ -1,0 +1,176 @@
+
+
+# PROMPT: COMPLETE STRIPE PRICE CONFIGURATION FOR ALL TIERS
+
+## OBJECTIVE
+Create and configure all missing Stripe price IDs for the new tier structure. Currently, only `price_agency_monthly` is missing, but we need to set up price IDs for ALL paid tiers (Agent, Agency, Expert) for both monthly and annual billing cycles.
+
+## CURRENT ISSUE
+- Missing Stripe price IDs for all subscription plans
+- Backend expects specific price IDs that don't exist in Stripe
+- Subscription creation fails due to missing price configuration
+- Need complete Stripe price setup for new tier structure
+
+## REQUIRED STRIPE PRICE IDs TO CREATE
+
+### Agent Tier
+- **Monthly:** `price_agent_monthly` - $49.00 USD/month
+- **Annual:** `price_agent_yearly` - $470.40 USD/year (20% discount)
+
+### Agency Tier
+- **Monthly:** `price_agency_monthly` - $99.00 USD/month
+- **Annual:** `price_agency_yearly` - $950.40 USD/year (20% discount)
+
+### Expert Tier
+- **Monthly:** `price_expert_monthly` - $299.00 USD/month
+- **Annual:** `price_expert_yearly` - $2,870.40 USD/year (20% discount)
+
+## IMPLEMENTATION REQUIREMENTS
+
+### 1. Stripe Dashboard Setup
+**Create All Price IDs:**
+- Log in to Stripe dashboard
+- Navigate to Products → Prices
+- Create 6 new prices with exact specifications:
+  - Agent Monthly: $49.00, recurring monthly, ID: `price_agent_monthly`
+  - Agent Annual: $470.40, recurring annual, ID: `price_agent_yearly`
+  - Agency Monthly: $99.00, recurring monthly, ID: `price_agency_monthly`
+  - Agency Annual: $950.40, recurring annual, ID: `price_agency_yearly`
+  - Expert Monthly: $299.00, recurring monthly, ID: `price_expert_monthly`
+  - Expert Annual: $2,870.40, recurring annual, ID: `price_expert_yearly`
+
+**Price Configuration Details:**
+- Currency: USD
+- Billing Scheme: Per unit
+- Tax behavior: Exclusive (if applicable)
+- Set as active prices
+
+**Deliverables:**
+- Screenshot of Stripe dashboard showing all 6 prices
+- Confirmation of exact price IDs and amounts
+- Verification of recurring billing cycles
+
+### 2. Database Configuration Update
+**Update subscriptionPlans Table:**
+- Insert or update records for all 6 price IDs
+- Ensure proper mapping between tier names and price IDs
+- Include both monthly and annual billing intervals
+
+**SQL Implementation:**
+```sql
+-- Update subscriptionPlans table with Stripe price IDs
+UPDATE subscriptionPlans 
+SET stripe_price_id = 'price_agent_monthly'
+WHERE name = 'agent' AND interval = 'month';
+
+UPDATE subscriptionPlans 
+SET stripe_price_id = 'price_agent_yearly'
+WHERE name = 'agent' AND interval = 'year';
+
+UPDATE subscriptionPlans 
+SET stripe_price_id = 'price_agency_monthly'
+WHERE name = 'agency' AND interval = 'month';
+
+UPDATE subscriptionPlans 
+SET stripe_price_id = 'price_agency_yearly'
+WHERE name = 'agency' AND interval = 'year';
+
+UPDATE subscriptionPlans 
+SET stripe_price_id = 'price_expert_monthly'
+WHERE name = 'expert' AND interval = 'month';
+
+UPDATE subscriptionPlans 
+SET stripe_price_id = 'price_expert_yearly'
+WHERE name = 'expert' AND interval = 'year';
+```
+
+**Deliverables:**
+- SQL script used for database updates
+- Verification of updated records in database
+- Confirmation of correct price ID mappings
+
+### 3. Backend Integration Verification
+**Test Price Retrieval:**
+- Verify backend can fetch correct price IDs from database
+- Test subscription creation with each price ID
+- Ensure proper error handling for missing prices
+
+**Subscription Flow Test:**
+- Test subscription creation for each tier and billing interval
+- Verify correct Stripe price ID is used
+- Confirm user subscription status updates
+
+**Deliverables:**
+- Backend price retrieval test results
+- Subscription creation test logs
+- Error handling verification
+
+## TESTING REQUIREMENTS
+
+### 1. Price Configuration Testing
+- Verify all 6 price IDs exist in Stripe dashboard
+- Confirm correct amounts and billing cycles
+- Test price retrieval from database
+
+### 2. Subscription Flow Testing
+**Test Each Tier:**
+- **Agent Monthly:** $49/month subscription
+- **Agent Annual:** $470.40/year subscription
+- **Agency Monthly:** $99/month subscription
+- **Agency Annual:** $950.40/year subscription
+- **Expert Monthly:** $299/month subscription
+- **Expert Annual:** $2,870.40/year subscription
+
+**Test Scenarios:**
+- New user registration with each tier
+- Subscription creation with correct price
+- Stripe dashboard verification of subscriptions
+- User status updates in database
+
+### 3. Error Handling Testing
+- Test with invalid price IDs
+- Verify proper error messages
+- Test subscription cancellation
+- Verify webhook handling
+
+## DELIVERABLES
+1. **Stripe Configuration:**
+   - Screenshot of all 6 prices in Stripe dashboard
+   - Confirmation of price IDs and amounts
+   - Verification of billing cycles
+
+2. **Database Updates:**
+   - SQL script for price ID updates
+   - Database records verification
+   - Price mapping confirmation
+
+3. **Testing Results:**
+   - Subscription flow test for all 6 combinations
+   - Stripe subscription verification
+   - Database status updates confirmation
+
+4. **Integration Verification:**
+   - Backend price retrieval logs
+   - Subscription creation success rates
+   - Error handling test results
+
+## PRODUCTION REQUIREMENTS
+- **Live Stripe Dashboard:** Use production Stripe account
+- **Real Price Creation:** Create actual prices in production
+- **Production Database:** Update live database with price IDs
+- **No Test Data:** All tests must use production configuration
+
+## IMPLEMENTATION PRIORITY
+1. **Critical (Immediate):** Create all 6 Stripe price IDs
+2. **High (2-3 hours):** Update database with price IDs
+3. **Medium (3-5 hours):** Test subscription flow for all tiers
+4. **Low (5-7 hours):** Documentation and verification
+
+## SUCCESS CRITERIA
+- All 6 Stripe price IDs created and active
+- Database updated with correct price mappings
+- Subscription creation works for all tier/billing combinations
+- Stripe dashboard shows active subscriptions
+- User database records update correctly
+
+Please confirm receipt and provide a detailed plan for creating all missing Stripe price IDs, updating the database, and testing the complete subscription flow for all tiers and billing intervals.
