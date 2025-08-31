@@ -97,55 +97,98 @@ export default function Subscribe() {
         </div>
 
         {!clientSecret ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <PricingCard
-              title="Premium"
-              price="$29"
-              period="per month"
-              features={[
-                "Direct agent contact info",
-                "Full property analytics", 
-                "Advanced filters",
-                "Market trend reports",
-                "Virtual tours",
-              ]}
-              buttonText="Select Premium"
-              buttonVariant="default"
-              popular={true}
-              onSelect={() => handlePlanSelect('premium')}
-            />
-            <PricingCard
-              title="Agent"
-              price="$99"
-              period="per month"
-              features={[
-                "5 active listings",
-                "Lead generation tools",
-                "Performance analytics",
-                "Featured credits included",
-                "Agent profile page",
-              ]}
-              buttonText="Select Agent"
-              buttonVariant="secondary"
-              popular={false}
-              onSelect={() => handlePlanSelect('agent')}
-            />
-            <PricingCard
-              title="Agency"
-              price="$299"
-              period="per month"
-              features={[
-                "25 active listings",
-                "10 team seats",
-                "Lead routing",
-                "CRM-lite tools",
-                "Bulk CSV import",
-              ]}
-              buttonText="Select Agency"
-              buttonVariant="accent"
-              popular={false}
-              onSelect={() => handlePlanSelect('agency')}
-            />
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <PricingCard
+                title="Free"
+                price="$0"
+                period="always"
+                features={[
+                  "Browse properties",
+                  "Save favorites",
+                  "Basic search filters",
+                  "Contact agents via forms",
+                ]}
+                buttonText="Get Started Free"
+                buttonVariant="outline"
+                popular={false}
+                onSelect={() => handlePlanSelect('free')}
+              />
+              <PricingCard
+                title="Premium"
+                price="$9.99"
+                period="per month"
+                features={[
+                  "All Free features",
+                  "Direct agent contact info",
+                  "Advanced search filters", 
+                  "Property analytics",
+                  "Market trend reports",
+                  "Saved search alerts",
+                ]}
+                buttonText="Select Premium"
+                buttonVariant="default"
+                popular={true}
+                onSelect={() => handlePlanSelect('premium')}
+              />
+              <PricingCard
+                title="Agent"
+                price="$49"
+                period="per month"
+                features={[
+                  "All Premium features",
+                  "Create 25 listings",
+                  "Lead management dashboard",
+                  "Performance analytics",
+                  "Agent profile page",
+                  "Featured listing credits",
+                ]}
+                buttonText="Select Agent"
+                buttonVariant="secondary"
+                popular={false}
+                onSelect={() => handlePlanSelect('agent')}
+              />
+              <PricingCard
+                title="Agency"
+                price="$199"
+                period="per month"
+                features={[
+                  "All Agent features",
+                  "500 active listings",
+                  "10 team seats",
+                  "Lead routing & CRM",
+                  "Bulk property import",
+                  "White-label branding",
+                ]}
+                buttonText="Select Agency"
+                buttonVariant="accent"
+                popular={false}
+                onSelect={() => handlePlanSelect('agency')}
+              />
+            </div>
+            
+            <div className="text-center">
+              <div className="max-w-md mx-auto">
+                <PricingCard
+                  title="Expert"
+                  price="$299"
+                  period="per month"
+                  features={[
+                    "All Agency features",
+                    "1000+ active listings",
+                    "25 team seats",
+                    "AI pricing suggestions",
+                    "Predictive market analytics",
+                    "API access & integrations",
+                    "Dedicated account manager",
+                  ]}
+                  buttonText="Select Expert"
+                  buttonVariant="default"
+                  popular={false}
+                  onSelect={() => handlePlanSelect('expert')}
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div className="max-w-2xl mx-auto">

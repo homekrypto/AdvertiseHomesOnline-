@@ -118,17 +118,6 @@ export default function Login() {
               </Link>
             </div>
 
-            <div className="border-t pt-4">
-              <p className="text-xs text-muted-foreground text-center">
-                For demo, use password "demo123" with these emails:
-                <br />
-                <span className="font-medium">sarah.johnson@realty.com</span> (Agent)
-                <br />
-                <span className="font-medium">michael.chen@premiumhomes.com</span> (Agency) 
-                <br />
-                <span className="font-medium">david.thompson@gmail.com</span> (Premium)
-              </p>
-            </div>
           </form>
         </CardContent>
       </Card>

@@ -57,62 +57,7 @@ function getRedirectUrl(role: string): string {
   }
 }
 
-// Real user creation system
-async function createOrGetRealUser(userInfo: { email: string; role?: string }) {
-  // First try to get existing user by email
-  const existingUsers = await storage.getAllUsers();
-  const existingUser = existingUsers.find(u => u.email === userInfo.email);
-  
-  if (existingUser) {
-    // Update role if specified and different
-    if (userInfo.role && existingUser.role !== userInfo.role) {
-      return await storage.updateUserRole(existingUser.id, userInfo.role);
-    }
-    return existingUser;
-  }
-  
-  // Create realistic users based on role
-  const realUsers = {
-    agent: {
-      firstName: "Sarah",
-      lastName: "Johnson", 
-      email: "sarah.johnson@realty.com"
-    },
-    agency: {
-      firstName: "Michael",
-      lastName: "Chen",
-      email: "michael.chen@premiumhomes.com"
-    },
-    expert: {
-      firstName: "Dr. Elena",
-      lastName: "Rodriguez",
-      email: "elena.rodriguez@realestate-ai.com"
-    },
-    premium: {
-      firstName: "David",
-      lastName: "Thompson",
-      email: "david.thompson@gmail.com"
-    },
-    free: {
-      firstName: "Jessica",
-      lastName: "Williams",
-      email: "jessica.williams@outlook.com"
-    }
-  };
-  
-  const role = userInfo.role || 'premium';
-  const userData = realUsers[role as keyof typeof realUsers] || realUsers.premium;
-  
-  // Create new user with realistic data
-  return await storage.upsertUser({
-    id: `user-${Date.now()}`,
-    email: userData.email,
-    firstName: userData.firstName,
-    lastName: userData.lastName,
-    profileImageUrl: null,
-    role: role,
-  });
-}
+// Remove demo user creation - real users only through registration
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
@@ -128,47 +73,66 @@ export async function setupAuth(app: Express) {
     try {
       const { email, firstName, lastName, password, role = "free" } = req.body;
       
-      if (!email || !firstName || !lastName) {
-        return res.status(400).json({ error: "Missing required fields" });
+      // Validate required fields
+      if (!email || !firstName || !lastName || !password) {
+        return res.status(400).json({ error: "All fields are required" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Please enter a valid email address" });
+      }
+      
+      // Validate password strength
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters long" });
       }
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
-        return res.status(400).json({ error: "User already exists" });
+        return res.status(400).json({ error: "An account with this email already exists" });
       }
       
-      // Create new user
+      // Create new user with real data
       const newUser = await storage.upsertUser({
-        email,
-        firstName,
-        lastName,
-        role,
+        email: email.toLowerCase().trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(), 
+        password: password, // In production, hash this with bcrypt
+        role: role || "free",
         status: "active",
         profileImageUrl: null,
+        featureFlags: {},
+        organizationId: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
       });
       
-      console.log(`New user registered: ${newUser.email} with role: ${newUser.role}`);
+      console.log(`New user registered: ${newUser.email} (Role: ${newUser.role})`);
       
-      // Auto-login after registration
+      // Auto-login after successful registration
       req.login({ 
         claims: { sub: newUser.id }, 
         dbUser: newUser 
       }, (err: any) => {
         if (err) {
-          console.error('Auto-login error:', err);
-          return res.status(500).json({ error: "Registration succeeded but login failed" });
+          console.error('Auto-login after registration error:', err);
+          return res.status(500).json({ error: "Registration succeeded but auto-login failed" });
         }
         
-        res.json({ 
-          message: "Registration successful", 
-          user: newUser,
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = newUser;
+        res.status(201).json({ 
+          message: "Account created successfully", 
+          user: userWithoutPassword,
           redirectUrl: getRedirectUrl(newUser.role)
         });
       });
     } catch (error) {
       console.error('Registration error:', error);
-      res.status(500).json({ error: "Registration failed" });
+      res.status(500).json({ error: "Registration failed. Please try again." });
     }
   });
 
@@ -184,17 +148,25 @@ export async function setupAuth(app: Express) {
       // Get user by email
       const user = await storage.getUserByEmail(email);
       if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "Invalid email or password" });
       }
       
-      // Simple password check (in production, use bcrypt)
-      console.log(`Password check: user.password='${user.password}' vs provided='${password}'`);
+      // Check if user has a password set
+      if (!user.password) {
+        return res.status(401).json({ error: "Please register an account first" });
+      }
+      
+      // Password validation - in production, use bcrypt for password hashing
       if (user.password !== password) {
-        console.log('Password mismatch - denying login');
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "Invalid email or password" });
       }
       
-      console.log(`User login: ${user.email} with role: ${user.role}`);
+      // Check if user account is active
+      if (user.status !== 'active') {
+        return res.status(401).json({ error: "Account is suspended or inactive" });
+      }
+      
+      console.log(`Successful login: ${user.email} (Role: ${user.role})`);
       
       // Set user session
       req.login({ 
@@ -202,7 +174,7 @@ export async function setupAuth(app: Express) {
         dbUser: user 
       }, (err: any) => {
         if (err) {
-          console.error('Login error:', err);
+          console.error('Login session error:', err);
           return res.status(500).json({ error: "Login failed" });
         }
         
