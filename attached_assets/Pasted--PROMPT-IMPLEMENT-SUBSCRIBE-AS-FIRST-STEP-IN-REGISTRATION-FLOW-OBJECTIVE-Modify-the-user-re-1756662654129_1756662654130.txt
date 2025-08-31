@@ -1,0 +1,148 @@
+
+
+# PROMPT: IMPLEMENT /SUBSCRIBE AS FIRST STEP IN REGISTRATION FLOW
+
+## OBJECTIVE
+Modify the user registration flow to make /subscribe the first step. Users should select their desired tier (Agent, Agency, Expert) and billing interval (monthly/yearly) on the /subscribe page before being redirected to the registration form. The registration form must pre-fill these selections while still allowing users to modify them.
+
+## CURRENT FLOW TO MODIFY
+- Current: Registration form → Tier selection → Payment
+- New: /subscribe page → Registration form (with pre-filled selections) → Email verification → Payment → Dashboard
+
+## IMPLEMENTATION REQUIREMENTS
+
+### 1. /subscribe Page Updates
+- **Tier Selection Cards:**
+  - Display Free, Agent, Agency, Expert tiers with correct pricing
+  - Implement "Select Agent", "Select Agency", "Select Expert" buttons (not "Get Started" for paid tiers)
+  - Free tier should have "Get Started Free" button
+- **Billing Interval Toggle:**
+  - Maintain existing monthly/yearly toggle functionality
+  - Show discounted annual pricing (20% off)
+- **Redirection Logic:**
+  - When user clicks "Select [Tier]" button, redirect to registration form with query parameters:
+    ```
+    /register?tier=agent&billingInterval=monthly
+    /register?tier=agency&billingInterval=yearly
+    /register?tier=expert&billingInterval=monthly
+    /register?tier=free&billingInterval=monthly
+    ```
+
+### 2. Registration Form Updates
+- **Query Parameter Handling:**
+  - Read `tier` and `billingInterval` from URL parameters on form load
+  - Pre-fill tier selection based on query parameter
+  - Pre-set billing interval toggle based on query parameter
+- **User Modification Capability:**
+  - Keep billing interval toggle functional (users can change monthly/yearly)
+  - Keep tier selection functional (users can change their selected tier)
+  - Update displayed price dynamically when user changes tier or billing interval
+- **Form Validation:**
+  - Ensure selected tier and billing interval are valid
+  - Show correct pricing based on current selections
+  - Maintain all existing form validation (email, password, etc.)
+
+### 3. Backend Integration
+- **Registration Endpoint Updates:**
+  - Accept `tier` and `billingInterval` from registration form
+  - Store these values in the user record during registration
+  - For Free tier: Set subscription_status to 'active' immediately
+  - For paid tiers: Set subscription_status to 'inactive' until payment completion
+- **Email Verification Flow:**
+  - Preserve selected tier and billing interval during verification process
+  - After verification, redirect paid tiers to payment page, Free tier to dashboard
+- **Payment Processing:**
+  - Use stored tier and billingInterval to determine correct Stripe price
+  - Process payment with appropriate amount based on selections
+  - Update subscription_status to 'active' after successful payment
+
+### 4. Flow Integration
+- **Free Tier Path:**
+  - /subscribe → Select Free → Registration form → Email verification → Free dashboard
+  - Skip payment step entirely
+- **Paid Tier Path:**
+  - /subscribe → Select [Tier] → Registration form → Email verification → Payment → Dashboard
+  - Payment amount based on selected tier and billing interval
+
+## TECHNICAL IMPLEMENTATION DETAILS
+
+### Frontend Changes
+```jsx
+// /subscribe page - Button redirection example
+<button 
+  onClick={() => window.location.href = `/register?tier=agent&billingInterval=${billingInterval}`}
+>
+  Select Agent
+</button>
+
+// Registration form - Query parameter handling
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const tier = params.get('tier') || 'free';
+  const billingInterval = params.get('billingInterval') || 'monthly';
+  
+  setSelectedTier(tier);
+  setBillingInterval(billingInterval);
+}, []);
+```
+
+### Backend Changes
+```typescript
+// Registration endpoint
+app.post('/api/register', async (req, res) => {
+  const { email, password, tier, billingInterval } = req.body;
+  
+  // Create user with selected tier and billing interval
+  const newUser = await db.insert(users).values({
+    email,
+    password: hashedPassword,
+    role: tier,
+    billingInterval: billingInterval,
+    subscriptionStatus: tier === 'free' ? 'active' : 'inactive'
+  }).returning();
+  
+  // Rest of registration logic...
+});
+```
+
+## TESTING REQUIREMENTS
+Provide testing instructions for:
+1. **Subscribe Page:**
+   - Verify tier selection buttons redirect to correct URL with parameters
+   - Test billing interval toggle updates pricing
+   - Confirm Free tier button works correctly
+
+2. **Registration Form:**
+   - Verify form pre-fills correctly from URL parameters
+   - Test user can change both tier and billing interval
+   - Confirm pricing updates dynamically with changes
+
+3. **Complete Flow:**
+   - Test Free tier: /subscribe → Register → Verify → Dashboard (no payment)
+   - Test paid tiers: /subscribe → Register → Verify → Payment → Dashboard
+   - Verify correct payment amount based on tier and billing interval
+
+4. **Edge Cases:**
+   - Direct access to registration form without parameters
+   - Changing tier and billing interval in registration form
+   - Canceling registration and returning to /subscribe
+
+## DELIVERABLES
+1. Updated /subscribe page with tier selection and redirection
+2. Modified registration form with query parameter handling
+3. Backend updates to support new flow
+4. Testing documentation for all scenarios
+5. Verification that implementation uses production data only
+
+## PRODUCTION REQUIREMENTS
+- **Live Data Only:** All implementations must use production databases and services
+- **No Mock Data:** Absolutely no hardcoded or placeholder values
+- **Real Transactions:** All payment processing must use live Stripe integration
+- **Production Verification:** Provide methods to verify implementation against production data
+
+## IMPLEMENTATION PRIORITY
+1. **Critical (Immediate):** /subscribe page redirection, registration form pre-fill
+2. **High (1-2 days):** Backend integration, payment processing updates
+3. **Medium (2-3 days):** Testing, documentation, verification
+
+Please confirm receipt of this prompt and provide a detailed implementation plan with timeline for each component.

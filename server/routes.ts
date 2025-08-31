@@ -49,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 1: User Registration (Creates user and sends verification email)
   app.post('/api/auth/register', async (req, res) => {
     try {
-      const { email, password, firstName, lastName, tier = 'premium' } = req.body;
+      const { email, password, firstName, lastName, tier = 'agent', billingInterval = 'monthly' } = req.body;
 
       // Validate input
       if (!email || !password) {
@@ -72,6 +72,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName,
         lastName,
         role: tier,
+        billingInterval,
+        subscriptionStatus: tier === 'free' ? 'active' : 'inactive', // Free tier is immediately active
         status: 'active',
         verified: false, // Email not verified yet
       };
@@ -104,6 +106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: user.id,
         email: user.email,
         tier: user.role,
+        billingInterval: user.billingInterval,
+        requiresPayment: tier !== 'free',
       });
 
     } catch (error) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { RefreshCw, UserPlus, Mail, Lock, User, Crown, CheckCircle } from "lucide-react";
 import EmailVerification from "./EmailVerification";
 import SubscriptionPayment from "@/components/SubscriptionPayment";
@@ -30,6 +31,7 @@ interface RegistrationData {
   firstName: string;
   lastName: string;
   tier: string;
+  billingInterval: string;
 }
 
 type RegistrationStep = 'register' | 'verify' | 'payment' | 'complete';
@@ -39,14 +41,38 @@ export default function UserRegistration() {
   const { user, isAuthenticated } = useAuth();
   const [currentStep, setCurrentStep] = useState<RegistrationStep>('register');
   const [userData, setUserData] = useState<any>(null);
+  const [isAnnual, setIsAnnual] = useState(false);
   const [formData, setFormData] = useState<RegistrationData>({
     email: '',
     password: '',
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    tier: 'premium'
+    tier: 'agent',
+    billingInterval: 'monthly'
   });
+
+  // Read query parameters and pre-fill form
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tier = params.get('tier') || 'agent';
+    const billingInterval = params.get('billingInterval') || 'monthly';
+    
+    setFormData(prev => ({
+      ...prev,
+      tier,
+      billingInterval
+    }));
+    setIsAnnual(billingInterval === 'yearly');
+  }, []);
+
+  // Update billingInterval when annual toggle changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      billingInterval: isAnnual ? 'yearly' : 'monthly'
+    }));
+  }, [isAnnual]);
 
   // Show message for already authenticated users
   if (isAuthenticated && user) {
@@ -187,6 +213,28 @@ export default function UserRegistration() {
       style: 'currency',
       currency: 'USD',
     }).format(price);
+  };
+
+  const calculatePrice = (basePriceMonthly: number, tierName: string) => {
+    if (tierName === 'free') return 0;
+    if (isAnnual) {
+      return basePriceMonthly * 0.8; // 20% discount for annual
+    }
+    return basePriceMonthly;
+  };
+
+  const getDisplayPrice = (plan: SubscriptionPlan) => {
+    // Map tier names to actual pricing from the new structure
+    const pricingMap: Record<string, number> = {
+      'free': 0,
+      'agent': 49,
+      'agency': 99,
+      'expert': 299,
+      'premium': 49, // fallback for legacy premium plan
+    };
+    
+    const basePrice = pricingMap[plan.id] || plan.price;
+    return calculatePrice(basePrice, plan.id);
   };
 
   // Render different steps
@@ -337,6 +385,29 @@ export default function UserRegistration() {
           </div>
         </div>
 
+        {/* Billing Interval Toggle */}
+        <div className="space-y-3">
+          <Label>Billing Interval</Label>
+          <div className="flex items-center justify-center space-x-4 p-3 bg-gray-50 rounded-lg">
+            <span className={`text-sm font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Monthly
+            </span>
+            <Switch
+              checked={isAnnual}
+              onCheckedChange={setIsAnnual}
+              data-testid="billing-toggle"
+            />
+            <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Annual
+            </span>
+            {isAnnual && (
+              <Badge className="ml-2 bg-green-100 text-green-800">
+                Save 20%
+              </Badge>
+            )}
+          </div>
+        </div>
+
         {/* Subscription Tier Selection */}
         <div className="space-y-3">
           <Label htmlFor="tier">Subscription Plan *</Label>
@@ -358,7 +429,7 @@ export default function UserRegistration() {
                       {getTierIcon(plan.id)}
                       <span>{plan.name}</span>
                       <Badge variant="outline" className="ml-auto">
-                        {formatPrice(plan.price)}/{plan.interval}
+                        {formatPrice(getDisplayPrice(plan))}/{isAnnual ? 'mo (annual)' : 'month'}
                       </Badge>
                     </div>
                   </SelectItem>
@@ -375,7 +446,8 @@ export default function UserRegistration() {
                   {getSelectedPlan()?.name} Plan
                 </h4>
                 <Badge variant="default">
-                  {formatPrice(getSelectedPlan()?.price || 0)}/month
+                  {formatPrice(getDisplayPrice(getSelectedPlan()!))}
+                  /{isAnnual ? 'mo (billed annually)' : 'month'}
                 </Badge>
               </div>
               <div className="text-xs text-blue-700 space-y-1">
