@@ -1,0 +1,117 @@
+Phase 0 — Preparation
+
+Verify cloud-only environment: Ensure no local ports (5000 or localhost) are being used. All backend, database, storage, and frontend should run in the cloud.
+
+Backup current database: Save the current PostgreSQL/DynamoDB state.
+
+Clear placeholder/demo data: Delete users named "Demo" and any empty property records.
+
+Phase 1 — Create Real User
+
+Go to Sign Up page.
+
+Register a new account using real email.
+
+Backend should:
+
+Validate email/password
+
+Store user in Users table
+
+Assign the correct role/plan (Free, Premium, Agent, Agency, Expert)
+
+Verify in database:
+
+Table Users contains new record
+
+No placeholder/demo user remains
+
+Log in as the new user and confirm:
+
+Session is active
+
+Redirect goes to the correct dashboard URL (not external Replit consent page)
+
+Phase 2 — Dashboard Access
+
+Dashboard fetches live data from backend:
+
+GET /api/user → returns current user info
+
+GET /api/subscriptions → returns subscription plan
+
+GET /api/properties → returns properties linked to user (initially empty)
+
+Verify frontend shows:
+
+Correct name (no “Demo”)
+
+Empty properties section if user hasn’t added any
+
+Features available according to subscription plan
+
+Phase 3 — Create Property Listing
+
+On the dashboard, click Add Property.
+
+Form fields should reflect user plan:
+
+Free: restricted (cannot add properties)
+
+Agent: limited number of listings
+
+Agency: full listings + team assignments
+
+Upload images/videos → stored in S3/CloudFront, URLs saved in database.
+
+Backend processes form:
+
+Validate all input
+
+Create record in Properties table
+
+Update analytics tracking (views, saves, CTR)
+
+Optional: featured listing or AI recommendation (only if plan supports)
+
+Verify frontend:
+
+Newly added property appears in dashboard
+
+Status shows Active/Pending/Archived
+
+Phase 4 — Verification
+
+Test end-to-end flow:
+
+User login → dashboard → add property → view property → receive notifications (if applicable)
+
+Ensure all endpoints are live and connected:
+
+Auth: /api/auth/*
+
+Users: /api/user
+
+Subscriptions: /api/subscriptions
+
+Properties: /api/properties
+
+Check database:
+
+User record exists
+
+Property record exists
+
+Media URLs point to live storage
+
+Confirm no demo or placeholder data anywhere.
+
+✅ Goal
+
+Fully working real-user flow: Sign Up → Dashboard → Add Property
+
+No demo/mock data, all live connections
+
+Frontend, backend, database, storage fully integrated
+
+Base foundation solid for subsequent phases (lead routing, analytics, AI features)
