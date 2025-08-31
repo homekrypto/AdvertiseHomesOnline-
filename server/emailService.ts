@@ -7,13 +7,13 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    // Configure Hostinger SMTP
+    // Configure Hostinger SMTP using environment variables
     this.transporter = nodemailer.createTransport({
-      host: 'smtp.hostinger.com',
-      port: 465,
+      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+      port: parseInt(process.env.SMTP_PORT || '465'),
       secure: true, // SSL
       auth: {
-        user: 'support@advertisehomes.online',
+        user: process.env.SMTP_USER || 'support@advertisehomes.online',
         pass: process.env.SMTP_PASSWORD
       }
     });
@@ -83,7 +83,7 @@ export class EmailService {
         `
       };
 
-      console.log(`📧 Sending verification email to: ${email}`);
+      console.log(`📧 Sending verification email to: ${email} using SMTP: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
       await this.transporter.sendMail(mailOptions);
       console.log(`✅ Verification email sent successfully to: ${email}`);
       

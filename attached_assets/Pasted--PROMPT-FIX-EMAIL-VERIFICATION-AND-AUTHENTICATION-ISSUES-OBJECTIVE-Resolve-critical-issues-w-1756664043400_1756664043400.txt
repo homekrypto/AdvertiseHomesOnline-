@@ -1,0 +1,154 @@
+
+
+# PROMPT: FIX EMAIL VERIFICATION AND AUTHENTICATION ISSUES
+
+## OBJECTIVE
+Resolve critical issues with email verification and authentication systems. Address API errors, email delivery problems, and non-functioning resend verification code. Remove test user data and ensure complete functionality using production data only.
+
+## CRITICAL ISSUES TO RESOLVE
+
+### 1. API Errors
+- `/api/auth/user` returning 401 (Unauthorized)
+- `/api/auth/register` returning 400 (Bad Request)
+- `/api/auth/resend-verification` returning 400 (Bad Request)
+
+### 2. Email Delivery Failure
+- Verification emails not being received during registration
+- Resend verification code functionality not working
+
+### 3. Data Cleanup Required
+- Remove all data for user `info@advertisehomes.online` from database
+
+## IMPLEMENTATION REQUIREMENTS
+
+### 1. Database Cleanup
+- **Remove User Data:**
+  - Delete user record for `info@advertisehomes.online` from users table
+  - Delete associated records from:
+    - verificationCodes table
+    - sessions table
+    - organizations table
+    - Any other related tables
+- **Provide SQL script** used for cleanup
+- **Verify complete removal** of all user data
+
+### 2. Fix Registration Endpoint (`/api/auth/register`)
+- **Investigate 400 Error:**
+  - Check endpoint implementation for request validation issues
+  - Ensure required fields (email, password, tier, billingInterval) are properly handled
+  - Validate request payload parsing
+- **Email Sending Implementation:**
+  - Verify email service integration (Hostinger SMTP)
+  - Ensure verification code is generated and stored in production database
+  - Confirm email template includes verification code
+  - Add error handling and logging for email failures
+- **User Creation Process:**
+  - Ensure user is created with `verified: false` and correct tier/billingInterval
+  - Store password with proper hashing
+  - Return appropriate success response
+
+### 3. Fix Resend Verification Endpoint (`/api/auth/resend-verification`)
+- **Investigate 400 Error:**
+  - Check endpoint implementation for request validation
+  - Ensure email is properly provided in request body
+- **Resend Logic Implementation:**
+  - Find user by email in production database
+  - Generate new verification code and update/replace existing code
+  - Set new expiration time (24 hours)
+  - Send email with new verification code
+  - Handle cases where user doesn't exist or is already verified
+
+### 4. Fix User Authentication Endpoint (`/api/auth/user`)
+- **Investigate 401 Error:**
+  - Check authentication middleware implementation
+  - Ensure session/token is properly validated
+  - Verify user is authenticated before accessing endpoint
+- **Endpoint Logic:**
+  - Return current user data if authenticated
+  - Include user's tier, verification status, and other relevant info
+
+### 5. Email Service Verification
+- **Configuration Check:**
+  - Verify SMTP settings (host, port, username, password)
+  - Test email sending independently of application
+  - Ensure emails are not flagged as spam
+- **Template Review:**
+  - Check email template for verification code inclusion
+  - Ensure template is properly formatted
+- **Logging Implementation:**
+  - Add detailed logging for email sending attempts
+  - Log success/failure with error messages
+
+### 6. Error Handling and Logging
+- **Comprehensive Logging:**
+  - Add logging for all authentication and verification steps
+  - Include request/response data for debugging
+  - Log email sending attempts and results
+- **User-Friendly Error Messages:**
+  - Return clear error messages in API responses
+  - Include actionable information for frontend display
+
+## TESTING REQUIREMENTS
+Provide detailed testing instructions for:
+1. **Database Cleanup:**
+   - Verify user data is completely removed
+   - Check related tables for remaining records
+
+2. **Registration Flow:**
+   - Test registration with new user (different email)
+   - Verify user creation in database with `verified: false`
+   - Check verification code storage in database
+   - Confirm email receipt with verification code
+
+3. **Email Verification:**
+   - Test verification code submission
+   - Verify user status updates to `verified: true`
+   - Test authentication after verification
+
+4. **Resend Verification:**
+   - Test resend functionality with valid email
+   - Verify new code generation and storage
+   - Confirm new email receipt
+   - Test with invalid/non-existent email
+
+5. **Authentication:**
+   - Test `/api/auth/user` after successful verification
+   - Verify 401 error when not authenticated
+   - Test session persistence
+
+## DELIVERABLES
+1. **Database Cleanup:**
+   - SQL script used for data removal
+   - Confirmation of complete data removal
+
+2. **Fixed Endpoints:**
+   - Updated `/api/auth/register` with proper error handling and email sending
+   - Updated `/api/auth/resend-verification` with working resend logic
+   - Fixed `/api/auth/user` authentication
+
+3. **Email Service:**
+   - Verified SMTP configuration
+   - Working email template
+   - Logs of test email sends
+
+4. **Testing Documentation:**
+   - Step-by-step testing instructions
+   - Test results for each scenario
+   - Screenshots or logs demonstrating successful flow
+
+5. **Error Handling:**
+   - Improved error messages
+   - Comprehensive logging implementation
+
+## PRODUCTION REQUIREMENTS
+- **Live Data Only:** All implementations must use production databases and services
+- **No Mock Data:** Absolutely no hardcoded or placeholder values
+- **Real Email Service:** Use production email configuration
+- **Production Verification:** Provide methods to verify implementation against production systems
+
+## IMPLEMENTATION PRIORITY
+1. **Critical (Immediate):** Database cleanup, fix registration endpoint
+2. **High (1 day):** Fix resend verification, fix user authentication
+3. **Medium (1-2 days):** Email service verification, comprehensive testing
+
+Please confirm receipt of this prompt and provide a detailed plan for resolving each issue, including timeline for completion.
