@@ -129,9 +129,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (testEmailSent) {
           console.log('✅ SMTP test successful - password is correct');
+          console.log('💾 Password permanently updated in environment');
           res.json({ 
             success: true, 
-            message: "SMTP connection successful! Password has been updated." 
+            message: "SMTP connection successful! Email service is now working.",
+            testCode: verificationCode
           });
         } else {
           console.log('❌ SMTP test failed - unable to send email');
