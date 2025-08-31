@@ -1258,21 +1258,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const invoice = subscription.latest_invoice as any;
       
-      if (!invoice || !invoice.payment_intent || !invoice.payment_intent.client_secret) {
-        console.error('Missing payment intent data:', {
-          invoice: !!invoice,
-          payment_intent: !!invoice?.payment_intent,
-          client_secret: !!invoice?.payment_intent?.client_secret
-        });
-        return res.status(500).json({ 
-          error: "Failed to create payment intent", 
-          subscriptionId: subscription.id
+      // Check subscription status and handle different payment scenarios
+      console.log('Subscription created:', {
+        id: subscription.id,
+        status: subscription.status,
+        invoice_status: invoice?.status,
+        has_payment_intent: !!invoice?.payment_intent
+      });
+      
+      // Handle different subscription states
+      if (subscription.status === 'active') {
+        // Subscription is already active (no payment required)
+        return res.json({
+          subscriptionId: subscription.id,
+          status: 'active',
+          message: 'Subscription activated successfully'
         });
       }
       
-      res.json({
+      if (subscription.status === 'trialing') {
+        // Subscription is in trial period
+        return res.json({
+          subscriptionId: subscription.id,
+          status: 'trialing',
+          message: 'Trial subscription activated successfully'
+        });
+      }
+      
+      // For incomplete subscriptions that require payment
+      if (subscription.status === 'incomplete' && invoice?.payment_intent?.client_secret) {
+        return res.json({
+          subscriptionId: subscription.id,
+          clientSecret: invoice.payment_intent.client_secret,
+          status: 'incomplete',
+          message: 'Payment required to complete subscription'
+        });
+      }
+      
+      // Handle case where subscription is created but no payment intent is needed
+      if (!invoice?.payment_intent) {
+        console.log('Subscription created without payment intent requirement');
+        return res.json({
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          message: 'Subscription created successfully'
+        });
+      }
+      
+      // Fallback error case
+      console.error('Unexpected subscription state:', {
+        subscription_status: subscription.status,
+        invoice: !!invoice,
+        payment_intent: !!invoice?.payment_intent,
+        client_secret: !!invoice?.payment_intent?.client_secret
+      });
+      
+      return res.status(500).json({ 
+        error: "Unexpected subscription state",
         subscriptionId: subscription.id,
-        clientSecret: invoice.payment_intent.client_secret,
+        status: subscription.status
       });
     } catch (error: any) {
       console.error("Error creating subscription:", error);
