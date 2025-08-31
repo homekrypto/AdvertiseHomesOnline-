@@ -189,6 +189,11 @@ export default function AdminPropertyManagement() {
     }));
   };
 
+  // Update the select values to handle the "all" case properly
+  const getSelectValue = (filterValue: string) => {
+    return filterValue === '' ? 'all' : filterValue;
+  };
+
   // Handle pagination
   const handlePageChange = (newOffset: number) => {
     setFilters(prev => ({ ...prev, offset: newOffset }));
@@ -380,12 +385,12 @@ export default function AdminPropertyManagement() {
               />
             </div>
 
-            <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+            <Select value={getSelectValue(filters.status)} onValueChange={(value) => handleFilterChange('status', value === 'all' ? '' : value)}>
               <SelectTrigger data-testid="status-filter">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -393,12 +398,12 @@ export default function AdminPropertyManagement() {
               </SelectContent>
             </Select>
 
-            <Select value={filters.propertyType} onValueChange={(value) => handleFilterChange('propertyType', value)}>
+            <Select value={getSelectValue(filters.propertyType)} onValueChange={(value) => handleFilterChange('propertyType', value === 'all' ? '' : value)}>
               <SelectTrigger data-testid="type-filter">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="house">House</SelectItem>
                 <SelectItem value="apartment">Apartment</SelectItem>
                 <SelectItem value="condo">Condo</SelectItem>
@@ -408,12 +413,12 @@ export default function AdminPropertyManagement() {
               </SelectContent>
             </Select>
 
-            <Select value={filters.featured} onValueChange={(value) => handleFilterChange('featured', value)}>
+            <Select value={getSelectValue(filters.featured)} onValueChange={(value) => handleFilterChange('featured', value === 'all' ? '' : value)}>
               <SelectTrigger data-testid="featured-filter">
                 <SelectValue placeholder="Featured status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Properties</SelectItem>
+                <SelectItem value="all">All Properties</SelectItem>
                 <SelectItem value="true">Featured Only</SelectItem>
                 <SelectItem value="false">Not Featured</SelectItem>
               </SelectContent>
@@ -452,12 +457,12 @@ export default function AdminPropertyManagement() {
               data-testid="max-price-filter"
             />
 
-            <Select value={filters.agentId} onValueChange={(value) => handleFilterChange('agentId', value)}>
+            <Select value={getSelectValue(filters.agentId)} onValueChange={(value) => handleFilterChange('agentId', value === 'all' ? '' : value)}>
               <SelectTrigger data-testid="agent-filter">
                 <SelectValue placeholder="Filter by agent" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Agents</SelectItem>
+                <SelectItem value="all">All Agents</SelectItem>
                 {users?.filter((user: any) => ['agent', 'agency', 'expert'].includes(user.role))
                   .map((agent: any) => (
                     <SelectItem key={agent.id} value={agent.id}>
