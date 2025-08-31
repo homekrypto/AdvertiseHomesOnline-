@@ -137,53 +137,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const user = await storage.createUser(userData);
-      console.log(`✅ User created successfully: ${user.id} (${user.email})`);
 
       // Generate verification code and store in production database
-      console.log(`🔄 Starting verification code creation for user: ${user.id} (${user.email})`);
       const verificationCode = emailService.generateVerificationCode();
-      console.log(`🎲 Generated verification code: ${verificationCode}`);
-      
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiration
-      console.log(`⏰ Verification code expires at: ${expiresAt}`);
 
       if (!user.email) {
-        console.error('❌ User email is missing');
         return res.status(400).json({ message: "User email is required" });
       }
 
-      console.log(`💾 Attempting to create verification code in database...`);
-      try {
-        await storage.createVerificationCode({
-          userId: user.id,
-          email: user.email,
-          code: verificationCode,
-          purpose: 'email_verification',
-          expiresAt,
-        });
-        console.log(`✅ Verification code created successfully in database`);
-      } catch (dbError) {
-        console.error('❌ Database error creating verification code:', dbError);
-        throw dbError; // Re-throw to be caught by outer try-catch
-      }
+      await storage.createVerificationCode({
+        userId: user.id,
+        email: user.email,
+        code: verificationCode,
+        purpose: 'email_verification',
+        expiresAt,
+      });
 
       // Send real verification email
-      console.log(`🔄 Attempting to send verification email to: ${email} with code: ${verificationCode}`);
       try {
         const emailSent = await emailService.sendVerificationEmail(email, verificationCode);
         
         if (!emailSent) {
-          console.warn('❌ Failed to send verification email, but user was created');
-        } else {
-          console.log('✅ Verification email sent successfully');
+          console.warn('Failed to send verification email, but user was created');
         }
       } catch (emailError) {
-        console.error('❌ Email service error:', emailError);
-        // For demo purposes, log the verification code if SMTP auth fails
+        console.error('Email service error:', emailError);
+        // Log the verification code if SMTP auth fails for backup verification
         if ((emailError as any).code === 'EAUTH') {
-          console.log('⚠️  SMTP authentication failed during registration');
-          console.log(`📝 Verification code for ${email}: ${verificationCode}`);
+          console.log(`SMTP authentication failed - Verification code for ${email}: ${verificationCode}`);
         }
       }
 
@@ -576,21 +559,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Generate slug from title and city before validation
+      const slug = `${req.body.title}-${req.body.city}`.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
       const propertyData = insertPropertySchema.parse({
         ...req.body,
+        slug,
         agentId: userId,
         organizationId: user.organizationId,
       });
-
-      // Generate slug from title and city
-      const slug = `${propertyData.title}-${propertyData.city}`.toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
       
-      const property = await storage.createProperty({
-        ...propertyData,
-        slug,
-      });
+      const property = await storage.createProperty(propertyData);
 
       // Initialize analytics tracking for new property
       try {

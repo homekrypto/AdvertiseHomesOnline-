@@ -270,11 +270,9 @@ export async function consumeFeaturedCredit(userId: string, storage: any): Promi
   }
 
   // Consume one featured credit - update feature flags instead
-  const currentFlags = (user.featureFlags as any) || {};
-  const currentCredits = currentFlags.featuredCredits || 0;
   const updatedFlags = { 
     ...currentFlags, 
-    featuredCredits: Math.max(0, currentCredits - 1) 
+    featuredCredits: Math.max(0, featuredCredits - 1) 
   };
   
   await db.update(users)

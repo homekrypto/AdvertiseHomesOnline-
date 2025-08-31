@@ -2,6 +2,7 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
 
 export function getSession() {
@@ -125,8 +126,9 @@ export async function setupAuth(app: Express) {
         return res.status(401).json({ error: "Please register an account first" });
       }
       
-      // Password validation - in production, use bcrypt for password hashing
-      if (user.password !== password) {
+      // Password validation using bcrypt
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
       
