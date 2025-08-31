@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, UserPlus, Mail, Lock, User, Crown } from "lucide-react";
+import { RefreshCw, UserPlus, Mail, Lock, User, Crown, CheckCircle } from "lucide-react";
 import EmailVerification from "./EmailVerification";
 import SubscriptionPayment from "@/components/SubscriptionPayment";
 
@@ -35,6 +36,7 @@ type RegistrationStep = 'register' | 'verify' | 'payment' | 'complete';
 
 export default function UserRegistration() {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [currentStep, setCurrentStep] = useState<RegistrationStep>('register');
   const [userData, setUserData] = useState<any>(null);
   const [formData, setFormData] = useState<RegistrationData>({
@@ -45,6 +47,51 @@ export default function UserRegistration() {
     lastName: '',
     tier: 'premium'
   });
+
+  // Show message for already authenticated users
+  if (isAuthenticated && user) {
+    return (
+      <Card className="w-full max-w-md mx-auto" data-testid="already-registered-card">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4">
+            <CheckCircle className="h-16 w-16 text-green-600" />
+          </div>
+          <CardTitle className="text-green-600">Already Registered!</CardTitle>
+          <CardDescription>
+            You're already logged in with an active account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center space-y-2">
+            <Badge variant="outline" className="text-sm" data-testid="current-user-email">
+              {user.email}
+            </Badge>
+            <br />
+            <Badge variant="default" data-testid="current-user-tier">
+              {user.role ? `${user.role.charAt(0).toUpperCase()}${user.role.slice(1)} Plan` : 'Active Plan'}
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            <Button 
+              onClick={() => window.location.href = '/'} 
+              className="w-full"
+              data-testid="button-go-dashboard"
+            >
+              Go to Dashboard
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/api/logout'} 
+              variant="outline" 
+              className="w-full"
+              data-testid="button-logout"
+            >
+              Logout
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Fetch subscription plans from production database
   const { data: subscriptionPlans = [], isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({

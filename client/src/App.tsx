@@ -34,6 +34,7 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Home} />
+          <Route path="/register" component={Register} />
           <Route path="/properties" component={Properties} />
           <Route path="/properties/:slug" component={PropertyDetail} />
           <Route path="/subscribe" component={Subscribe} />
