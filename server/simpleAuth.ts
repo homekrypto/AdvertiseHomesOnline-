@@ -16,21 +16,18 @@ export function getSession() {
   return session({
     secret: process.env.SESSION_SECRET || 'dev-secret-key-change-in-production',
     store: sessionStore,
-    resave: false, // Don't save session if unmodified
+    resave: true, // Force save to ensure persistence
     saveUninitialized: false, // Don't save empty sessions
-    rolling: false, // Keep original session ID
+    rolling: false, // Don't regenerate session ID
     cookie: {
       httpOnly: true,
       secure: false, // Allow non-HTTPS for development
       maxAge: sessionTtl,
-      sameSite: 'lax',
-      path: '/', // Ensure cookie works across all paths
+      sameSite: 'none', // Try 'none' for better compatibility
+      path: '/',
     },
     name: 'connect.sid',
-    genid: () => {
-      // Generate consistent session IDs
-      return Math.random().toString(36).substring(2) + Date.now().toString(36);
-    }
+    proxy: true, // Trust proxy headers
   });
 }
 
