@@ -6,28 +6,22 @@ import { storage } from "./storage";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  
+  // TEMPORARY: Use memory store to isolate PostgreSQL session store issue
+  console.log('🧪 TESTING: Using memory store for sessions');
+  
   return session({
     secret: process.env.SESSION_SECRET || 'dev-secret-key-change-in-production',
-    store: sessionStore,
-    resave: true, // Force save to ensure persistence
-    saveUninitialized: false, // Don't save empty sessions
-    rolling: false, // Don't regenerate session ID
+    // No store = uses memory store
+    resave: false,
+    saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false, // Allow non-HTTPS for development
+      secure: false,
       maxAge: sessionTtl,
-      sameSite: 'none', // Try 'none' for better compatibility
-      path: '/',
+      sameSite: 'lax',
     },
     name: 'connect.sid',
-    proxy: true, // Trust proxy headers
   });
 }
 
@@ -222,21 +216,19 @@ export async function setupAuth(app: Express) {
         console.log('req.user after login:', req.user);
         console.log('req.isAuthenticated():', req.isAuthenticated());
         
-        // Force session save
-        req.session.save((saveErr: any) => {
-          if (saveErr) {
-            console.error('Session save error:', saveErr);
-          } else {
-            console.log('Session saved successfully');
-          }
-          
-          // Remove password from response for security
-          const { password: _, ...userWithoutPassword } = user;
-          res.json({ 
-            message: "Login successful", 
-            user: userWithoutPassword,
-            redirectUrl: getRedirectUrl(user.role)
-          });
+        // Test session data immediately
+        console.log('🔍 Session immediately after login:');
+        console.log('Session ID:', req.sessionID);
+        console.log('Session data:', req.session);
+        console.log('req.user:', req.user);
+        console.log('req.isAuthenticated():', req.isAuthenticated());
+        
+        // Remove password from response for security
+        const { password: _, ...userWithoutPassword } = user;
+        res.json({ 
+          message: "Login successful", 
+          user: userWithoutPassword,
+          redirectUrl: getRedirectUrl(user.role)
         });
       });
     } catch (error) {
