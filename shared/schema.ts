@@ -33,12 +33,13 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("free"), // free, registered, premium, agent, agency, expert, admin
+  role: varchar("role").notNull().default("free"), // free, agent, agency, expert, admin
   status: varchar("status").notNull().default("active"), // active, trial, cancelled, expired, suspended
   verified: boolean("verified").default(false), // Email verification status
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   organizationId: varchar("organization_id"),
+  billingInterval: varchar("billing_interval").default("monthly"), // monthly, yearly
   featureFlags: jsonb("feature_flags").default('{}'), // Feature access control
   trialEnd: timestamp("trial_end"),
   currentPeriodEnd: timestamp("current_period_end"),
@@ -80,11 +81,15 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   id: varchar("id").primaryKey(),
   name: varchar("name").notNull(),
   stripePriceId: varchar("stripe_price_id").notNull(),
+  annualStripePriceId: varchar("annual_stripe_price_id"), // Annual pricing ID
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  annualPrice: decimal("annual_price", { precision: 10, scale: 2 }), // Annual price (discounted)
   interval: varchar("interval").notNull(), // monthly, yearly
+  annualDiscountPercent: integer("annual_discount_percent").default(20), // 20% discount for annual
   features: jsonb("features").notNull(), // JSON object with feature flags
   listingCap: integer("listing_cap"),
   seats: integer("seats"),
+  isActive: boolean("is_active").default(true), // Enable/disable plans
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -464,6 +469,8 @@ export interface FeatureFlags {
   ai_pricing_suggestions: boolean;
   ai_comp_selection: boolean;
   ai_automation: boolean;
+  ai_blog_writing: boolean; // New: AI blog writing from property listings
+  ai_social_media_integration: boolean; // New: 1-button social media posting
   integrations_api: boolean;
   priority_rank_boost: boolean;
   priority_support: boolean;
@@ -473,7 +480,7 @@ export interface FeatureFlags {
 export type SubscriptionStatus = 'active' | 'trial' | 'cancelled' | 'expired' | 'suspended';
 
 // User Role Types
-export type UserRole = 'free' | 'registered' | 'premium' | 'agent' | 'agency' | 'expert' | 'admin';
+export type UserRole = 'free' | 'agent' | 'agency' | 'expert' | 'admin';
 
 // Admin Permission Types
 export type AdminRole = 'super_admin' | 'billing_admin' | 'user_support' | 'content_admin' | 'analytics_viewer';

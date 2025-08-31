@@ -32,6 +32,8 @@ export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string
     ai_pricing_suggestions: false,
     ai_comp_selection: false,
     ai_automation: false,
+    ai_blog_writing: false, // New: AI blog writing from property listings
+    ai_social_media_integration: false, // New: 1-button social media posting
     integrations_api: false,
     priority_rank_boost: false,
     priority_support: false,
@@ -39,33 +41,14 @@ export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string
 
   switch (role) {
     case 'free':
-      // 🏠 FREE BROWSERS (Unauthenticated)
-      return {
-        ...baseFlags,
-        can_view_listings: true,
-      };
-
-    case 'registered':
-      // 🔑 REGISTERED USERS (Free Account)
+      // 🏠 FREE TIER ($0 - Always Free)
       return {
         ...baseFlags,
         can_view_listings: true,
         can_save_favorites: true,
         can_contact_via_form: true,
-        can_view_analytics: 'limited',
-      };
-
-    case 'premium':
-      // 💎 PREMIUM SUBSCRIBERS (Buyers/Investors)
-      return {
-        ...baseFlags,
-        can_view_listings: true,
-        can_save_favorites: true,
-        can_contact_via_form: true,
-        can_view_contact_info: true,
-        can_view_analytics: 'full',
-        can_advanced_filters: true,
-        can_virtual_tours: true,
+        can_view_contact_info: true, // Direct agent contact
+        can_advanced_filters: true, // Basic search filters included
       };
 
     case 'agent':
@@ -85,7 +68,7 @@ export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string
       };
 
     case 'agency':
-      // 🏢 AGENCY PLAN (Small Team)
+      // 🏢 AGENCY PLAN ($99/$79.20 monthly - Small Team)
       return {
         ...baseFlags,
         can_view_listings: true,
@@ -95,19 +78,19 @@ export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string
         can_view_analytics: 'full',
         can_advanced_filters: true,
         can_virtual_tours: true,
-        agent_max_active_listings: 25,
+        agent_max_active_listings: 20, // Updated to 20 listings
         agent_featured_credits_monthly: 10,
         agent_analytics: 'advanced',
-        org_max_active_listings: 25,
-        org_seats: 10,
+        org_max_active_listings: 20, // Updated to 20 listings
+        org_seats: 2, // Updated to 2 team seats
         org_crm: true,
         org_lead_routing: true,
         org_bulk_import: true,
-        org_branding_page: true,
+        org_branding_page: true, // White-label branding
       };
 
     case 'expert':
-      // 🚀 EXPERT PLAN (Enterprise + AI)
+      // 🚀 EXPERT PLAN ($299/$239.20 monthly - Enterprise + AI)
       return {
         ...baseFlags,
         can_view_listings: true,
@@ -117,11 +100,11 @@ export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string
         can_view_analytics: 'full',
         can_advanced_filters: true,
         can_virtual_tours: true,
-        agent_max_active_listings: 999999, // Unlimited
+        agent_max_active_listings: 100, // Updated to 100 listings
         agent_featured_credits_monthly: 50,
         agent_analytics: 'advanced',
-        org_max_active_listings: 999999, // Unlimited
-        org_seats: 50,
+        org_max_active_listings: 100, // Updated to 100 listings
+        org_seats: 5, // Updated to 5 team seats
         org_crm: true,
         org_lead_routing: true,
         org_bulk_import: true,
@@ -129,9 +112,11 @@ export function getFeatureFlagsForRole(role: UserRole, organizationTier?: string
         ai_pricing_suggestions: true,
         ai_comp_selection: true,
         ai_automation: true,
-        integrations_api: true,
+        ai_blog_writing: true, // AI blog writing from property listings
+        ai_social_media_integration: true, // 1-button social media posting
+        integrations_api: true, // API access & integrations
         priority_rank_boost: true,
-        priority_support: true,
+        priority_support: true, // Dedicated account manager
       };
 
     case 'admin':

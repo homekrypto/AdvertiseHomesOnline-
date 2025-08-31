@@ -1,0 +1,169 @@
+
+
+# COMPREHENSIVE TIER SYSTEM REIMPLEMENTATION WITH ANNUAL BILLING PROMPT
+
+## OBJECTIVE
+Implement a complete overhaul of the subscription tier system with annual billing option. All changes must use exclusively live production data with no mock or hardcoded values.
+
+## NEW TIER STRUCTURE TO IMPLEMENT
+
+### Free Tier
+- **Price:** $0 (always free)
+- **Features:**
+  - Browse properties
+  - Save favorites
+  - Basic search filters
+  - Contact agents via forms and directly
+- **Call to Action:** "Get Started Free"
+
+### Agent Tier
+- **Monthly Price:** $49/month
+- **Annual Price:** $39.20/month (20% discount = $470.40/year)
+- **Features:**
+  - All Free features
+  - Create 5 listings
+  - Lead management dashboard
+  - Performance analytics
+  - Agent profile page
+  - Featured listing credits
+
+### Agency Tier
+- **Monthly Price:** $99/month
+- **Annual Price:** $79.20/month (20% discount = $950.40/year)
+- **Features:**
+  - All Agent features
+  - 20 active listings
+  - 2 team seats
+  - Lead routing & CRM
+  - Bulk property import
+  - White-label branding
+
+### Expert Tier
+- **Monthly Price:** $299/month
+- **Annual Price:** $239.20/month (20% discount = $2,870.40/year)
+- **Features:**
+  - All Agency features
+  - 100 active listings
+  - 5 team seats
+  - AI Features:
+    - Blog writing based on property listed
+    - 1-button social media integration from blog
+  - Predictive market analytics
+  - API access & integrations
+  - Dedicated account manager
+
+## CRITICAL NEW REQUIREMENT: ANNUAL BILLING TOGGLE
+
+### Subscribe Page Implementation
+- **Toggle Switch:** Add a prominent toggle on /subscribe page between "Monthly" and "Annual" billing
+- **Pricing Display:** 
+  - Monthly: Show standard monthly price
+  - Annual: Show discounted monthly price with "billed annually" notation
+  - Example: Agent tier shows "$49/month" (monthly) or "$39.20/month (billed annually)"
+- **Visual Design:** Toggle should be clearly visible and update all pricing cards instantly
+- **Selection Persistence:** Remember user's billing preference during registration flow
+
+### Registration Flow Integration
+- **Billing Interval Capture:** Store selected billing interval (monthly/annual) during registration
+- **Payment Amount:** Charge correct amount based on selected tier and billing interval
+- **Stripe Integration:** Use appropriate Stripe price ID for monthly vs annual billing
+- **Confirmation:** Display selected billing interval and total amount in payment confirmation
+
+## IMPLEMENTATION REQUIREMENTS
+
+### 1. Database Schema Changes
+- **Update subscriptionPlans Table:**
+  - Add annual_stripe_price_id field for each tier
+  - Add annual_discount_percent field (default 20)
+  - Remove premium tier completely
+  - Update pricing to match new structure ($0, $49, $99, $299 monthly)
+- **Update Users Table:**
+  - Add billing_interval field (month/year)
+  - Remove premium tier references
+  - Adjust feature flags to match new tier capabilities
+- **Migration Plan:** SQL script to migrate existing premium users and add annual billing fields
+
+### 2. Subscribe Page Redesign
+- **Toggle Component:** Implement prominent monthly/annual toggle switch
+- **Pricing Cards:** Update to display both monthly and annual pricing
+- **Dynamic Updates:** Real-time price updates when toggle is switched
+- **Selection Handling:** Capture selected billing interval when user proceeds
+
+### 3. Registration Flow Implementation
+- **Tier Selection:** Update UI to show only new tiers (Free, Agent, Agency, Expert)
+- **Billing Interval:** Pass selected billing interval through entire registration flow
+- **Email Verification:** Maintain verification step with tier and interval data
+- **Payment Processing:** Charge correct amount based on tier and selected interval
+- **Dashboard Redirection:** Route to appropriate dashboard after successful payment
+
+### 4. Admin Dashboard Updates
+- **Tier Management:** Update to manage only new tiers with monthly/annual options
+- **User Assignment:** Allow admins to assign users to new tiers with billing intervals
+- **Subscription Display:** Show both monthly and annual subscriptions with correct pricing
+- **Analytics Updates:** Modify reports to reflect new tier structure and billing intervals
+
+### 5. Dashboard Differentiation
+- **Free Dashboard:** Basic property browsing and favorites only
+- **Agent Dashboard:** Include listing creation (5 max), lead management, performance analytics
+- **Agency Dashboard:** Include team management (2 seats), lead routing, CRM
+- **Expert Dashboard:** Include all agency features plus AI tools, API access, predictive analytics
+
+### 6. Feature Implementation
+- **AI Features:**
+  - Implement blog writing based on property listings
+  - Create 1-button social media integration from blog posts
+- **Lead Management:** Complete implementation for agent tier and above
+- **Team Management:** Implement seat management for agency and expert tiers
+- **API Access:** Create API endpoints for expert tier with proper authentication
+- **White-Label Branding:** Implement branding options for agency and expert tiers
+
+### 7. Backend API Updates
+- **Authentication:** Update role checking to use new tier structure
+- **Permission System:** Implement new feature flags for all new capabilities
+- **Listing Limits:** Enforce new listing caps (5, 20, 100) at API level
+- **Seat Management:** Implement seat counting and validation for teams
+- **AI Endpoints:** Create endpoints for blog generation and social media integration
+- **Billing Endpoints:** Update to handle both monthly and annual billing intervals
+
+### 8. Payment Processing Updates
+- **Stripe Integration:** 
+  - Create annual Stripe prices for each tier with 20% discount
+  - Update to handle both monthly and annual billing
+  - Store both monthly and annual Stripe price IDs in database
+- **Subscription Management:** Handle upgrades/downgrades between new tiers and intervals
+- **Webhook Updates:** Modify Stripe webhooks to process new tier and interval events
+- **Proration:** Implement proper proration for tier and interval changes
+
+## TESTING REQUIREMENTS
+Provide comprehensive testing instructions for:
+1. **Subscribe Page:** Test toggle functionality and price updates
+2. **Registration Flow:** Test sign-up for each tier with both monthly and annual billing
+3. **Payment Processing:** Verify correct amounts charged for all tier/interval combinations
+4. **Dashboard Access:** Verify correct dashboard for each tier
+5. **Feature Limits:** Test listing limits, seat counts, and feature access
+6. **AI Features:** Test blog generation and social media integration
+7. **API Access:** Verify expert tier API functionality
+8. **Admin Functions:** Test tier management and user migration
+
+## DELIVERABLES
+1. **Updated Database Schema:** SQL scripts for all schema changes
+2. **Migration Plan:** Complete strategy for migrating existing users
+3. **Frontend Implementation:** All UI components updated for new tiers and annual billing
+4. **Backend Implementation:** All API endpoints and services updated
+5. **Payment Integration:** Updated Stripe integration with monthly and annual pricing
+6. **Testing Documentation:** Comprehensive testing instructions
+7. **Verification Evidence:** Screenshots and logs showing implementation with production data
+
+## PRODUCTION REQUIREMENTS
+- **Live Data Only:** All implementations must use production databases and services
+- **No Mock Data:** Absolutely no hardcoded or placeholder values
+- **Real Transactions:** All payment processing must use live Stripe integration
+- **Production Verification:** Provide methods to verify implementation against production data
+
+## IMPLEMENTATION PRIORITY
+1. **Critical (Immediate):** Database changes, subscribe page toggle, payment processing
+2. **High (1-3 days):** Registration flow, dashboard updates, feature implementation
+3. **Medium (3-5 days):** AI features, API access, white-label branding
+4. **Low (5-7 days):** Advanced analytics, reporting enhancements
+
+Please confirm receipt of this prompt and provide a detailed implementation plan with timeline for each component, with special attention to the annual billing toggle functionality.

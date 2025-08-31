@@ -1,0 +1,158 @@
+
+
+# COMPREHENSIVE TIER SYSTEM REIMPLEMENTATION PROMPT
+
+## OBJECTIVE
+Implement a complete overhaul of the subscription tier system to match the new structure below. All changes must use exclusively live production data with no mock or hardcoded values.
+
+## NEW TIER STRUCTURE TO IMPLEMENT
+
+### Free Tier
+- **Price:** $0 (always free)
+- **Features:**
+  - Browse properties
+  - Save favorites
+  - Basic search filters
+  - Contact agents via forms and directly
+- **Call to Action:** "Get Started Free"
+
+### Agent Tier
+- **Price:** $49 per month
+- **Features:**
+  - All Free features
+  - Create 5 listings
+  - Lead management dashboard
+  - Performance analytics
+  - Agent profile page
+  - Featured listing credits
+
+### Agency Tier
+- **Price:** $99 per month
+- **Features:**
+  - All Agent features
+  - 20 active listings
+  - 2 team seats
+  - Lead routing & CRM
+  - Bulk property import
+  - White-label branding
+
+### Expert Tier
+- **Price:** $299 per month
+- **Features:**
+  - All Agency features
+  - 100 active listings
+  - 5 team seats
+  - AI Features:
+    - Blog writing based on property listed
+    - 1-button social media integration from blog
+  - Predictive market analytics
+  - API access & integrations
+  - Dedicated account manager
+
+## IMPLEMENTATION REQUIREMENTS
+
+### 1. Database Schema Changes
+- **Remove Premium Tier:** Completely eliminate the "premium" tier from all tables
+- **Update subscriptionPlans Table:**
+  - Modify to include only: free, agent, agency, expert
+  - Update pricing to match new structure ($0, $49, $99, $299)
+  - Store all features as JSONB with exact descriptions above
+- **Update Users Table:**
+  - Remove any references to "premium" tier
+  - Adjust role field to only allow new tier values
+  - Update feature flags to match new tier capabilities
+- **Update Organizations Table:**
+  - Adjust listing caps: Agent (5), Agency (20), Expert (100)
+  - Adjust seat counts: Agency (2), Expert (5)
+  - Add fields for AI features and API access
+- **Migration Plan:** Provide SQL script to migrate existing premium users to appropriate new tiers
+
+### 2. Registration Flow Implementation
+- **Remove Premium Option:** Eliminate premium tier from registration UI
+- **Update Pricing Cards:** Display only new tiers with correct pricing and features
+- **Implement Tier Selection:** Create clear UI for selecting between free, agent, agency, expert
+- **Update Payment Processing:** Handle new pricing structure in Stripe integration
+- **Verification Flow:** Ensure email verification works with new tier selection
+
+### 3. Admin Dashboard Updates
+- **Tier Management:** Update admin interface to manage only new tiers
+- **User Assignment:** Allow admins to assign users to new tiers
+- **Feature Controls:** Implement controls for new features (AI, API access, etc.)
+- **Analytics Updates:** Modify reports to reflect new tier structure
+- **Migration Tools:** Provide interface for migrating existing premium users
+
+### 4. Dashboard Differentiation
+- **Free Dashboard:** Basic property browsing and favorites only
+- **Agent Dashboard:** Include listing creation (5 max), lead management, performance analytics
+- **Agency Dashboard:** Include team management (2 seats), lead routing, CRM
+- **Expert Dashboard:** Include all agency features plus AI tools, API access, predictive analytics
+- **Routing Updates:** Ensure proper dashboard routing based on new tier structure
+
+### 5. Property Viewing Implementation
+- **Free Users:** Can view properties with basic information
+- **Agent Users:** Can view properties with enhanced analytics
+- **Agency Users:** Can view properties with team management options
+- **Expert Users:** Can view properties with AI analysis and predictive data
+- **Contact Options:** Implement tier-based contact restrictions
+
+### 6. Feature Implementation
+- **AI Features:**
+  - Implement blog writing based on property listings
+  - Create 1-button social media integration from blog posts
+- **Lead Management:** Complete implementation for agent tier and above
+- **Team Management:** Implement seat management for agency and expert tiers
+- **API Access:** Create API endpoints for expert tier with proper authentication
+- **White-Label Branding:** Implement branding options for agency and expert tiers
+
+### 7. Backend API Updates
+- **Authentication:** Update role checking to use new tier structure
+- **Permission System:** Implement new feature flags for all new capabilities
+- **Listing Limits:** Enforce new listing caps (5, 20, 100) at API level
+- **Seat Management:** Implement seat counting and validation for teams
+- **AI Endpoints:** Create endpoints for blog generation and social media integration
+
+### 8. Payment Processing Updates
+- **Stripe Integration:** Update to handle new pricing structure ($0, $49, $99, $299)
+- **Subscription Management:** Handle upgrades/downgrades between new tiers
+- **Webhook Updates:** Modify Stripe webhooks to process new tier events
+- **Proration:** Implement proper proration for tier changes
+- **Dedicated Support:** Implement account manager assignment for expert tier
+
+### 9. Data Migration
+- **Premium Users:** Develop strategy to migrate existing premium users to agent tier
+- **Feature Updates:** Update feature flags for all existing users to match new structure
+- **Organizations:** Adjust organization records to reflect new listing caps and seat counts
+- **Communication:** Plan for notifying users about tier changes
+
+## TESTING REQUIREMENTS
+Provide comprehensive testing instructions for:
+1. **Registration Flow:** Test sign-up for each new tier
+2. **Dashboard Access:** Verify correct dashboard for each tier
+3. **Feature Limits:** Test listing limits, seat counts, and feature access
+4. **Payment Processing:** Test payments for each paid tier
+5. **AI Features:** Test blog generation and social media integration
+6. **API Access:** Verify expert tier API functionality
+7. **Admin Functions:** Test tier management and user migration
+
+## DELIVERABLES
+1. **Updated Database Schema:** SQL scripts for all schema changes
+2. **Migration Plan:** Complete strategy for migrating existing users
+3. **Frontend Implementation:** All UI components updated for new tiers
+4. **Backend Implementation:** All API endpoints and services updated
+5. **Payment Integration:** Updated Stripe integration with new pricing
+6. **Testing Documentation:** Comprehensive testing instructions
+7. **Verification Evidence:** Screenshots and logs showing implementation with production data
+
+## PRODUCTION REQUIREMENTS
+- **Live Data Only:** All implementations must use production databases and services
+- **No Mock Data:** Absolutely no hardcoded or placeholder values
+- **Real Transactions:** All payment processing must use live Stripe integration
+- **Production Verification:** Provide methods to verify implementation against production data
+
+## IMPLEMENTATION PRIORITY
+1. **Critical (Immediate):** Database changes, registration flow, payment processing
+2. **High (1-3 days):** Dashboard updates, feature implementation
+3. **Medium (3-5 days):** AI features, API access, white-label branding
+4. **Low (5-7 days):** Advanced analytics, reporting enhancements
+
+Please confirm receipt of this prompt and provide a detailed implementation plan with timeline for each component.

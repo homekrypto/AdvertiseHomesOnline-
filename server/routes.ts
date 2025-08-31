@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 4: Create Payment Intent for Selected Tier (Real Stripe integration)
   app.post('/api/create-subscription', async (req, res) => {
     try {
-      const { userId, planId } = req.body;
+      const { userId, planId, billingInterval = 'monthly' } = req.body;
 
       if (!userId || !planId) {
         return res.status(400).json({ message: "User ID and plan ID are required" });
@@ -214,18 +214,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
+      // Determine the correct Stripe price ID based on billing interval
+      const stripePriceId = billingInterval === 'yearly' && plan.annualStripePriceId 
+        ? plan.annualStripePriceId 
+        : plan.stripePriceId;
+
       // Create Stripe subscription
       const subscription = await stripe.subscriptions.create({
         customer: customer.id,
         items: [{
-          price: plan.stripePriceId,
+          price: stripePriceId,
         }],
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
       });
 
-      // Update user with Stripe IDs in production database
+      // Update user with Stripe IDs and billing interval in production database
       await storage.updateUserStripeInfo(user.id, customer.id, subscription.id);
+      await storage.updateUserBillingInterval(user.id, billingInterval);
 
       res.json({
         subscriptionId: subscription.id,
