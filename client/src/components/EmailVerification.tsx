@@ -33,7 +33,7 @@ export default function EmailVerification({
         code: code.trim(),
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "Email Verified!",
         description: "Your email has been successfully verified. You can now proceed to payment.",
@@ -116,7 +116,7 @@ export default function EmailVerification({
           </div>
           <div className="text-center">
             <Badge variant="default" data-testid="tier-badge">
-              {tier.charAt(0).toUpperCase() + tier.slice(1)} Tier
+              {tier ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)} Tier` : 'Premium Tier'}
             </Badge>
           </div>
         </CardContent>
