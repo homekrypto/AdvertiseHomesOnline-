@@ -70,28 +70,33 @@ export async function setupAuth(app: Express) {
   app.use(passport.session());
 
   passport.serializeUser((user: any, cb) => {
-    console.log('Serializing user:', user?.claims?.sub);
-    cb(null, user?.claims?.sub); // Store only user ID
+    console.log('Serializing user for session:', user?.claims?.sub || user?.dbUser?.id);
+    const userId = user?.claims?.sub || user?.dbUser?.id;
+    cb(null, userId);
   });
   
   passport.deserializeUser(async (userId: string, cb) => {
     try {
-      console.log('Deserializing user ID:', userId);
+      console.log('Deserializing user ID from session:', userId);
+      if (!userId) {
+        console.log('No user ID in session');
+        return cb(null, false);
+      }
+      
       const user = await storage.getUser(userId);
       if (user) {
-        // Reconstruct the full user object with claims
         const fullUser = {
           claims: { sub: user.id },
           dbUser: user
         };
-        console.log('User deserialized successfully:', user.email);
+        console.log('Successfully deserialized user:', user.email, 'Role:', user.role);
         cb(null, fullUser);
       } else {
-        console.log('User not found during deserialization:', userId);
+        console.log('User not found in database:', userId);
         cb(null, false);
       }
     } catch (error) {
-      console.error('Error deserializing user:', error);
+      console.error('Deserialization error:', error);
       cb(error, null);
     }
   });
