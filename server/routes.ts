@@ -109,6 +109,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (emailError) {
         console.error('❌ Email service error:', emailError);
+        // For demo purposes, log the verification code if SMTP auth fails
+        if ((emailError as any).code === 'EAUTH') {
+          console.log('⚠️  SMTP authentication failed during registration');
+          console.log(`📝 Verification code for ${email}: ${verificationCode}`);
+        }
       }
 
       res.status(201).json({
@@ -336,9 +341,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Resend verification code endpoint
   app.post('/api/auth/resend-verification', async (req, res) => {
     try {
+      console.log('🔄 Resend verification request body:', req.body);
       const { email } = req.body;
 
       if (!email) {
+        console.log('❌ No email found in request body');
         return res.status(400).json({ message: "Email is required" });
       }
 
@@ -369,10 +376,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Send verification email
-      const emailSent = await emailService.sendVerificationEmail(email, verificationCode);
-      
-      if (!emailSent) {
-        return res.status(500).json({ message: "Failed to send verification email" });
+      console.log(`🔄 Attempting to send verification email to: ${email} with code: ${verificationCode}`);
+      try {
+        const emailSent = await emailService.sendVerificationEmail(email, verificationCode);
+        
+        if (!emailSent) {
+          console.warn('❌ Failed to send verification email');
+          return res.status(500).json({ message: "Failed to send verification email" });
+        } else {
+          console.log('✅ Verification email sent successfully via resend endpoint');
+        }
+      } catch (emailError) {
+        console.error('❌ Email service error in resend:', emailError);
+        // For demo purposes, continue without email if SMTP auth fails
+        if ((emailError as any).code === 'EAUTH') {
+          console.log('⚠️  SMTP authentication failed - continuing without email for demo purposes');
+          console.log(`📝 Verification code for ${email}: ${verificationCode}`);
+          res.json({
+            success: true,
+            message: "Verification code generated (email service unavailable). Check server logs for code.",
+            debugCode: verificationCode // Only for development - remove in production
+          });
+          return;
+        }
+        return res.status(500).json({ message: "Email service error: " + (emailError as Error).message });
       }
 
       res.json({

@@ -90,6 +90,10 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('❌ Email sending failed:', error);
+      // Re-throw SMTP authentication errors so they can be handled upstream
+      if ((error as any).code === 'EAUTH') {
+        throw error;
+      }
       return false;
     }
   }
