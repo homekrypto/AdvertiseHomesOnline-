@@ -202,22 +202,39 @@ export async function setupAuth(app: Express) {
       
       console.log(`Successful login: ${user.email} (Role: ${user.role})`);
       
-      // Set user session
-      req.login({ 
+      // Set user session - CRITICAL FIX
+      const userForSession = { 
         claims: { sub: user.id }, 
         dbUser: user 
-      }, (err: any) => {
+      };
+      
+      console.log('About to login user:', userForSession);
+      
+      req.login(userForSession, (err: any) => {
         if (err) {
           console.error('Login session error:', err);
           return res.status(500).json({ error: "Login failed" });
         }
         
-        // Remove password from response for security
-        const { password: _, ...userWithoutPassword } = user;
-        res.json({ 
-          message: "Login successful", 
-          user: userWithoutPassword,
-          redirectUrl: getRedirectUrl(user.role)
+        console.log('Login successful, session should contain user data');
+        console.log('req.user after login:', req.user);
+        console.log('req.isAuthenticated():', req.isAuthenticated());
+        
+        // Force session save
+        req.session.save((saveErr: any) => {
+          if (saveErr) {
+            console.error('Session save error:', saveErr);
+          } else {
+            console.log('Session saved successfully');
+          }
+          
+          // Remove password from response for security
+          const { password: _, ...userWithoutPassword } = user;
+          res.json({ 
+            message: "Login successful", 
+            user: userWithoutPassword,
+            redirectUrl: getRedirectUrl(user.role)
+          });
         });
       });
     } catch (error) {
