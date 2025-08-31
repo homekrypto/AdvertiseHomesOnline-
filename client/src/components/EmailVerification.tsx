@@ -28,10 +28,12 @@ export default function EmailVerification({
   // Email verification mutation (production database)
   const verifyEmailMutation = useMutation({
     mutationFn: async (code: string) => {
-      return apiRequest('POST', '/api/auth/verify-email', {
+      console.log('🔍 Verifying email with:', { userId, code: code.trim(), email });
+      const response = await apiRequest('POST', '/api/auth/verify-email', {
         userId,
         code: code.trim(),
       });
+      return response.json();
     },
     onSuccess: (data: any) => {
       toast({
@@ -55,9 +57,11 @@ export default function EmailVerification({
   // Resend verification code mutation (production database)
   const resendCodeMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/auth/resend-verification', {
+      console.log('🔍 Resending verification code for:', { email });
+      const response = await apiRequest('POST', '/api/auth/resend-verification', {
         email,
       });
+      return response.json();
     },
     onSuccess: () => {
       toast({
