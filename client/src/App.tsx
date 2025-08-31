@@ -15,6 +15,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import ComprehensiveAdminDashboard from "@/pages/ComprehensiveAdminDashboard";
 import PropertyManagement from "@/pages/PropertyManagement";
 import Subscribe from "@/pages/Subscribe";
+import SMTPConfigPage from "@/pages/SMTPConfigPage";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -41,6 +42,7 @@ function Router() {
           <Route path="/agent/dashboard" component={AgentDashboard} />
           <Route path="/admin/dashboard" component={AdminDashboard} />
           <Route path="/admin/comprehensive" component={ComprehensiveAdminDashboard} />
+          <Route path="/admin/smtp" component={SMTPConfigPage} />
           <Route path="/manage/properties" component={PropertyManagement} />
 
         </>

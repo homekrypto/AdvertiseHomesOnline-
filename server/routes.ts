@@ -17,7 +17,7 @@ import {
 } from "@shared/schema";
 import Stripe from "stripe";
 import { handleStripeWebhook } from "./stripeWebhooks";
-import { emailService } from "./emailService";
+import { emailService, EmailService } from "./emailService";
 import bcrypt from "bcrypt";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -31,6 +31,64 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // SMTP Configuration endpoint
+  app.post('/api/admin/test-smtp', async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password) {
+        return res.status(400).json({ message: "Password is required" });
+      }
+
+      console.log('🔧 Testing SMTP connection with new password...');
+      
+      // Update the SMTP password temporarily for testing
+      const originalPassword = process.env.SMTP_PASSWORD;
+      process.env.SMTP_PASSWORD = password;
+      
+      try {
+        // Create a new email service instance with the updated password
+        const testEmailService = new EmailService();
+        
+        // Test sending a verification email to a test address
+        const testEmail = 'dev@advertisehomes.online'; // Use the recently registered user
+        const testCode = testEmailService.generateVerificationCode();
+        
+        console.log(`🧪 Testing SMTP with email: ${testEmail} and code: ${testCode}`);
+        
+        const emailSent = await testEmailService.sendVerificationEmail(testEmail, testCode);
+        
+        if (emailSent) {
+          console.log('✅ SMTP test successful - password is correct');
+          // Keep the new password
+          res.json({
+            success: true,
+            message: "SMTP connection successful! Email service is now working.",
+            testCode: testCode // For verification testing
+          });
+        } else {
+          console.log('❌ SMTP test failed - email service returned false');
+          // Restore original password
+          process.env.SMTP_PASSWORD = originalPassword;
+          res.status(500).json({ message: "SMTP connection failed" });
+        }
+      } catch (smtpError) {
+        console.error('❌ SMTP test error:', smtpError);
+        // Restore original password
+        process.env.SMTP_PASSWORD = originalPassword;
+        
+        if ((smtpError as any).code === 'EAUTH') {
+          res.status(401).json({ message: "SMTP authentication failed. Please check your password." });
+        } else {
+          res.status(500).json({ message: "SMTP connection error: " + (smtpError as Error).message });
+        }
+      }
+    } catch (error) {
+      console.error("Error testing SMTP:", error);
+      res.status(500).json({ message: "Failed to test SMTP connection" });
+    }
+  });
 
   // Auth routes 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
