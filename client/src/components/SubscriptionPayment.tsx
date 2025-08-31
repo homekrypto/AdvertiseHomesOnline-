@@ -58,10 +58,11 @@ function PaymentForm({
   // Confirm subscription after payment
   const confirmSubscriptionMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/confirm-subscription', {
+      const response = await apiRequest('POST', '/api/confirm-subscription', {
         userId: user.id,
         subscriptionId,
       });
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
@@ -72,7 +73,7 @@ function PaymentForm({
       
       // Redirect to appropriate dashboard
       setTimeout(() => {
-        window.location.href = data.dashboardUrl;
+        window.location.href = data.dashboardUrl || '/agent/dashboard';
       }, 2000);
       
       onPaymentSuccess();
@@ -173,14 +174,15 @@ export default function SubscriptionPayment({
   // Create subscription and get payment intent from production Stripe
   const createSubscriptionMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/create-subscription', {
+      const response = await apiRequest('POST', '/api/create-subscription', {
         userId: user.id,
         planId: selectedPlan?.id,
       });
+      return response.json();
     },
     onSuccess: (data) => {
-      setClientSecret(data.clientSecret);
-      setSubscriptionId(data.subscriptionId);
+      setClientSecret(data.clientSecret || '');
+      setSubscriptionId(data.subscriptionId || '');
       setIsLoading(false);
       
       if (data.existingSubscription) {

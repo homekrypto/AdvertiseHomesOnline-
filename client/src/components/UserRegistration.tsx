@@ -52,6 +52,11 @@ export default function UserRegistration() {
     billingInterval: 'monthly'
   });
 
+  // Fetch subscription plans from production database - MUST be before any early returns
+  const { data: subscriptionPlans = [], isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
+    queryKey: ['/api/subscription-plans'],
+  });
+
   // Read query parameters and pre-fill form
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -74,7 +79,7 @@ export default function UserRegistration() {
     }));
   }, [isAnnual]);
 
-  // Show message for already authenticated users
+  // Show message for already authenticated users - AFTER all hooks
   if (isAuthenticated && user) {
     return (
       <Card className="w-full max-w-md mx-auto" data-testid="already-registered-card">
@@ -118,11 +123,6 @@ export default function UserRegistration() {
       </Card>
     );
   }
-
-  // Fetch subscription plans from production database
-  const { data: subscriptionPlans = [], isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
-    queryKey: ['/api/subscription-plans'],
-  });
 
   // User registration mutation (production database)
   const registerMutation = useMutation({
