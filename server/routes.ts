@@ -85,6 +85,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiration
 
+      if (!user.email) {
+        return res.status(400).json({ message: "User email is required" });
+      }
+
       await storage.createVerificationCode({
         userId: user.id,
         email: user.email,
@@ -209,9 +213,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create Stripe customer
+      if (!user.email) {
+        return res.status(400).json({ message: "User email is required for subscription" });
+      }
+
       const customer = await stripe.customers.create({
         email: user.email,
-        name: `${user.firstName} ${user.lastName}`.trim(),
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         metadata: {
           userId: user.id,
           planId: plan.id,
@@ -274,7 +282,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserRole(userId, user.role);
         
         // Send welcome email
-        await emailService.sendWelcomeEmail(user.email, user.role);
+        if (user.email) {
+          await emailService.sendWelcomeEmail(user.email, user.role);
+        }
 
         // Determine dashboard URL based on tier
         const dashboardUrl = getDashboardUrlForTier(user.role);
@@ -338,6 +348,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verificationCode = emailService.generateVerificationCode();
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
+
+      if (!user.email) {
+        return res.status(400).json({ message: "User email is required" });
+      }
 
       await storage.createVerificationCode({
         userId: user.id,
@@ -775,12 +789,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         features: featureFlags,
         bulkImportEnabled: ['agency', 'expert', 'admin'].includes(user.role),
         aiSuggestionsEnabled: ['expert', 'admin'].includes(user.role),
-        featuredCreditsAvailable: user.featuredCredits || 0,
-        listingCap: user.listingCap || 0,
-        usedListings: user.usedListings || 0,
-        availableListings: (user.listingCap || 0) - (user.usedListings || 0),
+        featuredCreditsAvailable: ((user.featureFlags as any)?.featuredCredits) || featureFlags.agent_featured_credits_monthly || 0,
+        listingCap: featureFlags.agent_max_active_listings || featureFlags.org_max_active_listings || 0,
+        usedListings: 0, // Will be calculated from actual properties count
+        availableListings: featureFlags.agent_max_active_listings || featureFlags.org_max_active_listings || 0,
         advancedAnalytics: featureFlags.can_view_analytics === 'full',
-        customBranding: featureFlags.custom_branding || false,
+        customBranding: featureFlags.org_branding_page || false,
         prioritySupport: featureFlags.priority_support || false,
       };
 

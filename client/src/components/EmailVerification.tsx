@@ -116,7 +116,7 @@ export default function EmailVerification({
           </div>
           <div className="text-center">
             <Badge variant="default" data-testid="tier-badge">
-              {tier ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)} Tier` : 'Premium Tier'}
+              {tier && typeof tier === 'string' ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)} Tier` : 'Premium Tier'}
             </Badge>
           </div>
         </CardContent>

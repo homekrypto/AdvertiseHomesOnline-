@@ -262,15 +262,23 @@ export async function consumeFeaturedCredit(userId: string, storage: any): Promi
     throw new Error('User not found');
   }
 
-  const featuredCredits = user.featuredCredits || 0;
+  const currentFlags = (user.featureFlags as any) || {};
+  const featuredCredits = currentFlags.featuredCredits || 0;
   
   if (featuredCredits <= 0) {
     throw new Error('No featured credits available. Upgrade your plan or purchase additional credits.');
   }
 
-  // Consume one featured credit
+  // Consume one featured credit - update feature flags instead
+  const currentFlags = (user.featureFlags as any) || {};
+  const currentCredits = currentFlags.featuredCredits || 0;
+  const updatedFlags = { 
+    ...currentFlags, 
+    featuredCredits: Math.max(0, currentCredits - 1) 
+  };
+  
   await db.update(users)
-    .set({ featuredCredits: sql`${users.featuredCredits} - 1` })
+    .set({ featureFlags: updatedFlags })
     .where(eq(users.id, userId));
 }
 
@@ -287,7 +295,7 @@ export async function getPropertyFormConfig(userId: string, storage: any) {
     features: flags,
     bulkImportEnabled: flags.org_bulk_import,
     aiSuggestionsEnabled: flags.ai_pricing_suggestions,
-    featuredCreditsAvailable: user.featuredCredits || flags.agent_featured_credits_monthly || 0,
+    featuredCreditsAvailable: ((user.featureFlags as any)?.featuredCredits) || flags.agent_featured_credits_monthly || 0,
     listingCap: flags.agent_max_active_listings || flags.org_max_active_listings || 0,
     usedListings: userProperties.length,
     availableListings: Math.max(0, (flags.agent_max_active_listings || flags.org_max_active_listings || 0) - userProperties.length),
