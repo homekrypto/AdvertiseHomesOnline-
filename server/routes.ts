@@ -1583,6 +1583,363 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN PROPERTY MANAGEMENT ENDPOINTS ====================
+  
+  // Get comprehensive property analytics for admin
+  app.get('/api/admin/properties/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const timeframe = req.query.timeframe || '30d';
+      const analytics = await storage.getPropertyAnalytics(timeframe);
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching property analytics:", error);
+      res.status(500).json({ message: "Failed to fetch property analytics" });
+    }
+  });
+
+  // Get all properties with admin filtering and pagination
+  app.get('/api/admin/properties', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const filters = {
+        search: req.query.search as string,
+        agentId: req.query.agentId as string,
+        organizationId: req.query.organizationId as string,
+        status: req.query.status as string,
+        featured: req.query.featured === 'true' ? true : req.query.featured === 'false' ? false : undefined,
+        propertyType: req.query.propertyType as string,
+        city: req.query.city as string,
+        state: req.query.state as string,
+        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+        sortBy: req.query.sortBy as string || 'createdAt',
+        sortOrder: req.query.sortOrder as 'asc' | 'desc' || 'desc',
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      };
+
+      const result = await storage.getAdminProperties(filters);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching admin properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties" });
+    }
+  });
+
+  // Bulk update properties (admin only)
+  app.patch('/api/admin/properties/bulk-update', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { propertyIds, updates } = req.body;
+      
+      if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
+        return res.status(400).json({ message: "Property IDs array is required" });
+      }
+
+      if (propertyIds.length > 100) {
+        return res.status(400).json({ message: "Cannot update more than 100 properties at once" });
+      }
+
+      const results = await storage.bulkUpdateProperties(propertyIds, updates);
+      
+      // Log admin action
+      try {
+        await storage.logAdminAction({
+          actorId: userId,
+          actionType: 'bulk_update',
+          targetType: 'properties',
+          targetId: propertyIds.join(','),
+          beforeData: {},
+          afterData: { updates, count: results.updated },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (logError) {
+        console.warn('Failed to log admin action:', logError);
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error bulk updating properties:", error);
+      res.status(500).json({ message: "Failed to bulk update properties" });
+    }
+  });
+
+  // Bulk delete properties (admin only)
+  app.delete('/api/admin/properties/bulk-delete', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { propertyIds } = req.body;
+      
+      if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
+        return res.status(400).json({ message: "Property IDs array is required" });
+      }
+
+      if (propertyIds.length > 50) {
+        return res.status(400).json({ message: "Cannot delete more than 50 properties at once" });
+      }
+
+      // Get properties before deletion for logging
+      const propertiesBeforeDelete = await storage.getPropertiesByIds(propertyIds);
+      
+      const results = await storage.bulkDeleteProperties(propertyIds);
+      
+      // Log admin action
+      try {
+        await storage.logAdminAction({
+          actorId: userId,
+          actionType: 'bulk_delete',
+          targetType: 'properties',
+          targetId: propertyIds.join(','),
+          beforeData: { properties: propertiesBeforeDelete },
+          afterData: { deletedCount: results.deleted },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (logError) {
+        console.warn('Failed to log admin action:', logError);
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error bulk deleting properties:", error);
+      res.status(500).json({ message: "Failed to bulk delete properties" });
+    }
+  });
+
+  // Archive/Unarchive properties (admin only)
+  app.patch('/api/admin/properties/:id/archive', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const propertyId = req.params.id;
+      const { archive } = req.body; // true to archive, false to unarchive
+      
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      const newStatus = archive ? 'archived' : 'active';
+      const updatedProperty = await storage.updateProperty(propertyId, { status: newStatus });
+      
+      // Log admin action
+      try {
+        await storage.logAdminAction({
+          actorId: userId,
+          actionType: archive ? 'archive' : 'unarchive',
+          targetType: 'property',
+          targetId: propertyId,
+          beforeData: { status: property.status },
+          afterData: { status: newStatus },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (logError) {
+        console.warn('Failed to log admin action:', logError);
+      }
+
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error archiving property:", error);
+      res.status(500).json({ message: "Failed to archive property" });
+    }
+  });
+
+  // Get property performance metrics (admin only)
+  app.get('/api/admin/properties/:id/performance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const propertyId = req.params.id;
+      const timeframe = req.query.timeframe || '30d';
+      
+      const performance = await storage.getPropertyPerformance(propertyId, timeframe);
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching property performance:", error);
+      res.status(500).json({ message: "Failed to fetch property performance" });
+    }
+  });
+
+  // Duplicate property (admin only)
+  app.post('/api/admin/properties/:id/duplicate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const originalPropertyId = req.params.id;
+      const { assignToAgentId } = req.body;
+      
+      const originalProperty = await storage.getProperty(originalPropertyId);
+      if (!originalProperty) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      // Create duplicate with modified data
+      const duplicateData = {
+        ...originalProperty,
+        title: `${originalProperty.title} (Copy)`,
+        slug: `${originalProperty.slug}-copy-${Date.now()}`,
+        agentId: assignToAgentId || originalProperty.agentId,
+        featured: false,
+        featuredUntil: null,
+        views: 0,
+        saves: 0,
+      };
+
+      // Remove fields that shouldn't be copied
+      delete duplicateData.id;
+      delete duplicateData.createdAt;
+      delete duplicateData.updatedAt;
+
+      const duplicatedProperty = await storage.createProperty(duplicateData);
+      
+      // Log admin action
+      try {
+        await storage.logAdminAction({
+          actorId: userId,
+          actionType: 'duplicate',
+          targetType: 'property',
+          targetId: originalPropertyId,
+          beforeData: { originalId: originalPropertyId },
+          afterData: { duplicatedId: duplicatedProperty.id, assignedTo: assignToAgentId },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (logError) {
+        console.warn('Failed to log admin action:', logError);
+      }
+
+      res.json(duplicatedProperty);
+    } catch (error) {
+      console.error("Error duplicating property:", error);
+      res.status(500).json({ message: "Failed to duplicate property" });
+    }
+  });
+
+  // Transfer property ownership (admin only)
+  app.patch('/api/admin/properties/:id/transfer', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const propertyId = req.params.id;
+      const { newAgentId, newOrganizationId } = req.body;
+      
+      if (!newAgentId) {
+        return res.status(400).json({ message: "New agent ID is required" });
+      }
+
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      const newAgent = await storage.getUser(newAgentId);
+      if (!newAgent) {
+        return res.status(400).json({ message: "New agent not found" });
+      }
+
+      const updatedProperty = await storage.updateProperty(propertyId, {
+        agentId: newAgentId,
+        organizationId: newOrganizationId || newAgent.organizationId,
+      });
+      
+      // Log admin action
+      try {
+        await storage.logAdminAction({
+          actorId: userId,
+          actionType: 'transfer',
+          targetType: 'property',
+          targetId: propertyId,
+          beforeData: { 
+            agentId: property.agentId, 
+            organizationId: property.organizationId 
+          },
+          afterData: { 
+            agentId: newAgentId, 
+            organizationId: newOrganizationId || newAgent.organizationId 
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+      } catch (logError) {
+        console.warn('Failed to log admin action:', logError);
+      }
+
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error transferring property:", error);
+      res.status(500).json({ message: "Failed to transfer property" });
+    }
+  });
+
+  // Get property activity log (admin only)
+  app.get('/api/admin/properties/:id/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const propertyId = req.params.id;
+      const activities = await storage.getPropertyActivityLog(propertyId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching property activity:", error);
+      res.status(500).json({ message: "Failed to fetch property activity" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

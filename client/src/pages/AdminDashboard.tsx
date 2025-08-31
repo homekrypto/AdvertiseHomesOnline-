@@ -6,6 +6,7 @@ import Navigation from "@/components/Navigation";
 import AdminUserManagement from "@/components/AdminUserManagement";
 import AdminSubscriptionManagement from "@/components/AdminSubscriptionManagement";
 import AdminAnalytics from "@/components/AdminAnalytics";
+import AdminPropertyManagement from "@/components/AdminPropertyManagement";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -341,21 +342,8 @@ export default function AdminDashboard() {
                 <AdminAnalytics />
               </TabsContent>
 
-              <TabsContent value="properties" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Property Management</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-8">
-                      <Home className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-lg font-medium">Property Management</p>
-                      <p className="text-muted-foreground">
-                        Advanced property management tools will be available here
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+              <TabsContent value="properties">
+                <AdminPropertyManagement />
               </TabsContent>
             </Tabs>
           </div>

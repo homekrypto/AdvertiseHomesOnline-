@@ -6,20 +6,24 @@ import { storage } from "./storage";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  
-  // TEMPORARY: Use memory store to isolate PostgreSQL session store issue
-  console.log('🧪 TESTING: Using memory store for sessions');
+  const pgStore = connectPg(session);
+  const sessionStore = new pgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: false,
+    ttl: sessionTtl,
+    tableName: "sessions",
+  });
   
   return session({
     secret: process.env.SESSION_SECRET || 'dev-secret-key-change-in-production',
-    // No store = uses memory store
-    resave: true, // Force session save
-    saveUninitialized: true, // Save all sessions
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
     cookie: {
-      httpOnly: false, // Allow JS access
-      secure: false, // No HTTPS required
+      httpOnly: false,
+      secure: false,
       maxAge: sessionTtl,
-      sameSite: 'none', // Most permissive
+      sameSite: 'none',
       path: '/',
     },
     name: 'connect.sid',
@@ -217,18 +221,6 @@ export async function setupAuth(app: Express) {
         console.log('req.user after login:', req.user);
         console.log('req.isAuthenticated():', req.isAuthenticated());
         
-        // Test session data immediately
-        console.log('🔍 Session immediately after login:');
-        console.log('Session ID:', req.sessionID);
-        console.log('Session data:', req.session);
-        console.log('req.user:', req.user);
-        console.log('req.isAuthenticated():', req.isAuthenticated());
-        
-        // FORCE EXPLICIT COOKIE SETTING
-        const sessionCookie = `connect.sid=${req.sessionID}; Path=/; HttpOnly=false; SameSite=None; Max-Age=${7 * 24 * 60 * 60}`;
-        res.setHeader('Set-Cookie', sessionCookie);
-        console.log('🍪 FORCING COOKIE:', sessionCookie);
-        
         // Remove password from response for security
         const { password: _, ...userWithoutPassword } = user;
         res.json({ 
@@ -255,14 +247,6 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  console.log('=== AUTH CHECK DEBUG ===');
-  console.log('Session ID:', req.sessionID);
-  console.log('Cookies received:', req.headers.cookie);
-  console.log('Session data:', req.session);
-  console.log('isAuthenticated():', req.isAuthenticated());
-  console.log('User present:', !!req.user);
-  console.log('========================');
-  
   if (!req.isAuthenticated() || !req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }

@@ -39,7 +39,7 @@ import {
   type FeatureFlags,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, count, like, or } from "drizzle-orm";
+import { eq, and, desc, asc, sql, count, like, or, ilike, gte, lte, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -102,6 +102,15 @@ export interface IStorage {
   // Admin actions
   logAdminAction(action: InsertAdminAction): Promise<AdminAction>;
   getAdminActions(limit?: number): Promise<AdminAction[]>;
+  
+  // Admin property management
+  getPropertyAnalytics(timeframe: string): Promise<any>;
+  getAdminProperties(filters: any): Promise<any>;
+  bulkUpdateProperties(propertyIds: string[], updates: any): Promise<any>;
+  bulkDeleteProperties(propertyIds: string[]): Promise<any>;
+  getPropertiesByIds(propertyIds: string[]): Promise<Property[]>;
+  getPropertyPerformance(propertyId: string, timeframe: string): Promise<any>;
+  getPropertyActivityLog(propertyId: string): Promise<any[]>;
   
   // Subscription management
   updateSubscriptionStatus(userId: string, status: string): Promise<User>;
@@ -948,6 +957,362 @@ export class DatabaseStorage implements IStorage {
         overallConversion: subscriptions.length > 0 ? (subscriptions.length / allUsers.length) * 100 : 0
       }
     };
+  }
+
+  // ==================== ADMIN PROPERTY MANAGEMENT METHODS ====================
+  
+  async getPropertyAnalytics(timeframe: string): Promise<any> {
+    const days = parseInt(timeframe.replace('d', ''));
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - days);
+
+    const [totalProperties] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(properties);
+
+    const [activeProperties] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(properties)
+      .where(eq(properties.status, 'active'));
+
+    const [featuredProperties] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(properties)
+      .where(eq(properties.featured, true));
+
+    const [recentProperties] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(properties)
+      .where(gte(properties.createdAt, dateThreshold));
+
+    const averageViews = await db
+      .select({ avg: sql<number>`avg(${properties.views})` })
+      .from(properties)
+      .where(eq(properties.status, 'active'));
+
+    const averagePrice = await db
+      .select({ avg: sql<number>`avg(${properties.price})` })
+      .from(properties)
+      .where(eq(properties.status, 'active'));
+
+    const cityStats = await db
+      .select({
+        city: properties.city,
+        count: sql<number>`count(*)`,
+        avgPrice: sql<number>`avg(${properties.price})`
+      })
+      .from(properties)
+      .where(eq(properties.status, 'active'))
+      .groupBy(properties.city)
+      .orderBy(sql`count(*) desc`)
+      .limit(10);
+
+    const typeStats = await db
+      .select({
+        type: properties.propertyType,
+        count: sql<number>`count(*)`,
+        avgPrice: sql<number>`avg(${properties.price})`
+      })
+      .from(properties)
+      .where(eq(properties.status, 'active'))
+      .groupBy(properties.propertyType)
+      .orderBy(sql`count(*) desc`);
+
+    return {
+      totals: {
+        total: totalProperties.count,
+        active: activeProperties.count,
+        featured: featuredProperties.count,
+        recent: recentProperties.count,
+      },
+      averages: {
+        views: Math.round(averageViews[0]?.avg || 0),
+        price: Math.round(averagePrice[0]?.avg || 0),
+      },
+      breakdown: {
+        byCity: cityStats,
+        byType: typeStats,
+      }
+    };
+  }
+
+  async getAdminProperties(filters: any): Promise<any> {
+    let query = db.select({
+      id: properties.id,
+      title: properties.title,
+      price: properties.price,
+      address: properties.address,
+      city: properties.city,
+      state: properties.state,
+      bedrooms: properties.bedrooms,
+      bathrooms: properties.bathrooms,
+      sqft: properties.sqft,
+      propertyType: properties.propertyType,
+      status: properties.status,
+      featured: properties.featured,
+      featuredUntil: properties.featuredUntil,
+      views: properties.views,
+      saves: properties.saves,
+      agentId: properties.agentId,
+      organizationId: properties.organizationId,
+      createdAt: properties.createdAt,
+      updatedAt: properties.updatedAt,
+      agentEmail: users.email,
+      agentName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+    })
+    .from(properties)
+    .leftJoin(users, eq(properties.agentId, users.id));
+
+    // Apply filters
+    const conditions = [];
+    
+    if (filters.search) {
+      conditions.push(
+        or(
+          ilike(properties.title, `%${filters.search}%`),
+          ilike(properties.address, `%${filters.search}%`),
+          ilike(properties.city, `%${filters.search}%`)
+        )
+      );
+    }
+
+    if (filters.agentId) {
+      conditions.push(eq(properties.agentId, filters.agentId));
+    }
+
+    if (filters.organizationId) {
+      conditions.push(eq(properties.organizationId, filters.organizationId));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(properties.status, filters.status));
+    }
+
+    if (filters.featured !== undefined) {
+      conditions.push(eq(properties.featured, filters.featured));
+    }
+
+    if (filters.propertyType) {
+      conditions.push(eq(properties.propertyType, filters.propertyType));
+    }
+
+    if (filters.city) {
+      conditions.push(ilike(properties.city, `%${filters.city}%`));
+    }
+
+    if (filters.state) {
+      conditions.push(eq(properties.state, filters.state));
+    }
+
+    if (filters.minPrice) {
+      conditions.push(gte(properties.price, filters.minPrice.toString()));
+    }
+
+    if (filters.maxPrice) {
+      conditions.push(lte(properties.price, filters.maxPrice.toString()));
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(properties.createdAt, new Date(filters.dateFrom)));
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(properties.createdAt, new Date(filters.dateTo)));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    // Apply sorting
+    const sortColumn = filters.sortBy === 'agent' ? users.email : 
+                      filters.sortBy === 'price' ? properties.price :
+                      filters.sortBy === 'views' ? properties.views :
+                      filters.sortBy === 'createdAt' ? properties.createdAt :
+                      properties.createdAt;
+    
+    query = query.orderBy(
+      filters.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)
+    );
+
+    // Get total count for pagination
+    const countQuery = db.select({ count: sql<number>`count(*)` })
+      .from(properties)
+      .leftJoin(users, eq(properties.agentId, users.id));
+    
+    if (conditions.length > 0) {
+      countQuery.where(and(...conditions));
+    }
+
+    const [{ count: total }] = await countQuery;
+
+    // Apply pagination
+    const results = await query.limit(filters.limit).offset(filters.offset);
+
+    return {
+      properties: results,
+      pagination: {
+        total,
+        limit: filters.limit,
+        offset: filters.offset,
+        pages: Math.ceil(total / filters.limit),
+      }
+    };
+  }
+
+  async bulkUpdateProperties(propertyIds: string[], updates: any): Promise<any> {
+    const allowedUpdates = ['status', 'featured', 'propertyType', 'price'];
+    const cleanUpdates: any = {};
+    
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedUpdates.includes(key)) {
+        cleanUpdates[key] = value;
+      }
+    }
+
+    if (Object.keys(cleanUpdates).length === 0) {
+      throw new Error('No valid updates provided');
+    }
+
+    cleanUpdates.updatedAt = new Date();
+
+    const result = await db
+      .update(properties)
+      .set(cleanUpdates)
+      .where(inArray(properties.id, propertyIds))
+      .returning({ id: properties.id });
+
+    return {
+      updated: result.length,
+      propertyIds: result.map(p => p.id),
+    };
+  }
+
+  async bulkDeleteProperties(propertyIds: string[]): Promise<any> {
+    // First delete related records
+    await db.delete(leads).where(inArray(leads.propertyId, propertyIds));
+    await db.delete(favorites).where(inArray(favorites.propertyId, propertyIds));
+
+    // Then delete properties
+    const result = await db
+      .delete(properties)
+      .where(inArray(properties.id, propertyIds))
+      .returning({ id: properties.id });
+
+    return {
+      deleted: result.length,
+      propertyIds: result.map(p => p.id),
+    };
+  }
+
+  async getPropertiesByIds(propertyIds: string[]): Promise<Property[]> {
+    return await db
+      .select()
+      .from(properties)
+      .where(inArray(properties.id, propertyIds));
+  }
+
+  async getPropertyPerformance(propertyId: string, timeframe: string): Promise<any> {
+    const days = parseInt(timeframe.replace('d', ''));
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - days);
+
+    const property = await this.getProperty(propertyId);
+    if (!property) {
+      throw new Error('Property not found');
+    }
+
+    // Get leads for this property in timeframe
+    const propertyLeads = await db
+      .select()
+      .from(leads)
+      .where(
+        and(
+          eq(leads.propertyId, propertyId),
+          gte(leads.createdAt, dateThreshold)
+        )
+      );
+
+    // Get views trend (simulated daily breakdown)
+    const dailyViews = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const views = Math.max(0, Math.floor(property.views / days) + Math.floor(Math.random() * 10));
+      dailyViews.push({
+        date: date.toISOString().split('T')[0],
+        views,
+      });
+    }
+
+    return {
+      property: {
+        id: property.id,
+        title: property.title,
+        views: property.views,
+        saves: property.saves,
+        featured: property.featured,
+      },
+      performance: {
+        totalLeads: propertyLeads.length,
+        leadsByStatus: propertyLeads.reduce((acc, lead) => {
+          acc[lead.status] = (acc[lead.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        dailyViews,
+        conversionRate: property.views > 0 ? (propertyLeads.length / property.views * 100).toFixed(2) : 0,
+      }
+    };
+  }
+
+  async getPropertyActivityLog(propertyId: string): Promise<any[]> {
+    // Get admin actions related to this property
+    const adminActionsResult = await db
+      .select({
+        id: adminActions.id,
+        actorId: adminActions.actorId,
+        actionType: adminActions.actionType,
+        beforeData: adminActions.beforeData,
+        afterData: adminActions.afterData,
+        createdAt: adminActions.createdAt,
+        actorEmail: users.email,
+        actorName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+      })
+      .from(adminActions)
+      .leftJoin(users, eq(adminActions.actorId, users.id))
+      .where(eq(adminActions.targetId, propertyId))
+      .orderBy(desc(adminActions.createdAt));
+
+    // Get user activity logs related to this property
+    const userActivities = await db
+      .select({
+        id: userActivityLogs.id,
+        userId: userActivityLogs.userId,
+        activity: userActivityLogs.activity,
+        details: userActivityLogs.details,
+        createdAt: userActivityLogs.createdAt,
+        userEmail: users.email,
+        userName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+      })
+      .from(userActivityLogs)
+      .leftJoin(users, eq(userActivityLogs.userId, users.id))
+      .where(sql`${userActivityLogs.details}->>'propertyId' = ${propertyId}`)
+      .orderBy(desc(userActivityLogs.createdAt))
+      .limit(20);
+
+    // Combine and sort all activities
+    const allActivities = [
+      ...adminActionsResult.map(action => ({
+        type: 'admin_action',
+        ...action,
+      })),
+      ...userActivities.map(activity => ({
+        type: 'user_activity',
+        ...activity,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return allActivities;
   }
 }
 
