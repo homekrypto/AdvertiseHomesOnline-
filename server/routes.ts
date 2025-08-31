@@ -102,6 +102,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN SMTP CONFIGURATION ====================
+  
+  // Test SMTP connection endpoint for admin
+  app.post('/api/admin/test-smtp', async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password) {
+        return res.status(400).json({ message: "Password is required" });
+      }
+
+      // Test SMTP connection with the provided password
+      console.log('🔧 Testing SMTP connection with new password...');
+      
+      // Temporarily update the email service password for testing
+      const originalPassword = process.env.SMTP_PASSWORD;
+      process.env.SMTP_PASSWORD = password;
+      
+      try {
+        // Send a test email
+        const testEmailSent = await emailService.sendVerificationEmail(
+          'support@advertisehomes.online', 
+          '123456'
+        );
+        
+        if (testEmailSent) {
+          console.log('✅ SMTP test successful - password is correct');
+          res.json({ 
+            success: true, 
+            message: "SMTP connection successful! Password has been updated." 
+          });
+        } else {
+          console.log('❌ SMTP test failed - unable to send email');
+          process.env.SMTP_PASSWORD = originalPassword; // Restore original
+          res.status(400).json({ 
+            message: "SMTP connection failed. Please check your password." 
+          });
+        }
+      } catch (smtpError: any) {
+        console.error('❌ SMTP test error:', smtpError);
+        process.env.SMTP_PASSWORD = originalPassword; // Restore original
+        
+        if (smtpError.code === 'EAUTH') {
+          res.status(400).json({ 
+            message: "Authentication failed. Please check your password." 
+          });
+        } else {
+          res.status(400).json({ 
+            message: `SMTP error: ${smtpError.message}` 
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error testing SMTP:", error);
+      res.status(500).json({ message: "Failed to test SMTP connection" });
+    }
+  });
+
   // ==================== USER REGISTRATION & VERIFICATION FLOW ====================
   
   // Step 1: User Registration (Creates user and sends verification email)
@@ -396,14 +454,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/auth/resend-verification', async (req, res) => {
     try {
       console.log('🔄 Resend verification request body:', req.body);
+      console.log('🔄 Request headers:', req.headers);
       const { email } = req.body;
 
-      if (!email) {
+      let emailToUse = email;
+      
+      if (!emailToUse) {
         console.log('❌ No email found in request body');
-        return res.status(400).json({ message: "Email is required" });
+        // Try alternative ways to get email from request
+        const emailFromQuery = req.query.email as string;
+        const emailFromParams = req.params.email as string;
+        console.log('🔍 Checking query params:', emailFromQuery);
+        console.log('🔍 Checking route params:', emailFromParams);
+        
+        emailToUse = emailFromQuery || emailFromParams;
+        
+        if (!emailToUse) {
+          return res.status(400).json({ message: "Email is required" });
+        }
+        
+        console.log('🔄 Using fallback email:', emailToUse);
       }
 
-      const user = await storage.getUserByEmail(email);
+      const user = await storage.getUserByEmail(emailToUse);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -430,9 +503,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Send verification email
-      console.log(`🔄 Attempting to send verification email to: ${email} with code: ${verificationCode}`);
+      console.log(`🔄 Attempting to send verification email to: ${emailToUse} with code: ${verificationCode}`);
       try {
-        const emailSent = await emailService.sendVerificationEmail(email, verificationCode);
+        const emailSent = await emailService.sendVerificationEmail(emailToUse, verificationCode);
         
         if (!emailSent) {
           console.warn('❌ Failed to send verification email');
@@ -445,7 +518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // For demo purposes, continue without email if SMTP auth fails
         if ((emailError as any).code === 'EAUTH') {
           console.log('⚠️  SMTP authentication failed - continuing without email for demo purposes');
-          console.log(`📝 Verification code for ${email}: ${verificationCode}`);
+          console.log(`📝 Verification code for ${emailToUse}: ${verificationCode}`);
           res.json({
             success: true,
             message: "Verification code generated (email service unavailable). Check server logs for code.",
