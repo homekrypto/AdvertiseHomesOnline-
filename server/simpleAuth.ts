@@ -22,7 +22,9 @@ export function getSession() {
       httpOnly: true,
       secure: false, // Allow non-HTTPS for development
       maxAge: sessionTtl,
+      sameSite: 'lax', // Important for cross-origin requests
     },
+    name: 'replit.sid', // Custom session name
   });
 }
 
@@ -43,6 +45,8 @@ function handleAuthSuccess(req: any, res: any) {
 // Get redirect URL based on role
 function getRedirectUrl(role: string): string {
   switch (role) {
+    case 'admin':
+      return '/admin/dashboard';
     case 'agent':
       return '/agent/dashboard';
     case 'agency':
@@ -204,6 +208,10 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  console.log('Auth check - isAuthenticated():', req.isAuthenticated());
+  console.log('Auth check - user:', req.user ? 'present' : 'missing');
+  console.log('Auth check - session:', req.session ? 'present' : 'missing');
+  
   if (!req.isAuthenticated() || !req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
