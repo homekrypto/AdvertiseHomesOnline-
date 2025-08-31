@@ -161,7 +161,7 @@ export default function Subscribe() {
                   "White-label branding",
                 ]}
                 buttonText="Select Agency"
-                buttonVariant="accent"
+                buttonVariant="secondary"
                 popular={false}
                 onSelect={() => handlePlanSelect('agency')}
               />

@@ -9,7 +9,7 @@ interface PricingCardProps {
   period: string;
   features: string[];
   buttonText: string;
-  buttonVariant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive" | "accent";
+  buttonVariant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive";
   popular?: boolean;
   onSelect?: () => void;
 }
