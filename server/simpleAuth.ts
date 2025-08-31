@@ -69,8 +69,32 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  passport.serializeUser((user: any, cb) => cb(null, user));
-  passport.deserializeUser((user: any, cb) => cb(null, user));
+  passport.serializeUser((user: any, cb) => {
+    console.log('Serializing user:', user?.claims?.sub);
+    cb(null, user?.claims?.sub); // Store only user ID
+  });
+  
+  passport.deserializeUser(async (userId: string, cb) => {
+    try {
+      console.log('Deserializing user ID:', userId);
+      const user = await storage.getUser(userId);
+      if (user) {
+        // Reconstruct the full user object with claims
+        const fullUser = {
+          claims: { sub: user.id },
+          dbUser: user
+        };
+        console.log('User deserialized successfully:', user.email);
+        cb(null, fullUser);
+      } else {
+        console.log('User not found during deserialization:', userId);
+        cb(null, false);
+      }
+    } catch (error) {
+      console.error('Error deserializing user:', error);
+      cb(error, null);
+    }
+  });
 
   // User registration endpoint
   app.post("/api/auth/register", async (req, res) => {
