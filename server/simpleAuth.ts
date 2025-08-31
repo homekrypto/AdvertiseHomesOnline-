@@ -16,15 +16,16 @@ export function getSession() {
   return session({
     secret: process.env.SESSION_SECRET || 'dev-secret-key-change-in-production',
     store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Force session save on each request
+    saveUninitialized: true, // Save uninitialized sessions
+    rolling: true, // Reset session expiry on each request
     cookie: {
       httpOnly: true,
       secure: false, // Allow non-HTTPS for development
       maxAge: sessionTtl,
-      sameSite: 'lax', // Important for cross-origin requests
+      sameSite: 'lax',
     },
-    name: 'replit.sid', // Custom session name
+    name: 'connect.sid', // Standard session name
   });
 }
 
@@ -237,9 +238,13 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  console.log('Auth check - isAuthenticated():', req.isAuthenticated());
-  console.log('Auth check - user:', req.user ? 'present' : 'missing');
-  console.log('Auth check - session:', req.session ? 'present' : 'missing');
+  console.log('=== AUTH CHECK DEBUG ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('Session exists:', !!req.session);
+  console.log('Session data:', req.session);
+  console.log('isAuthenticated():', req.isAuthenticated());
+  console.log('User present:', !!req.user);
+  console.log('========================');
   
   if (!req.isAuthenticated() || !req.user) {
     return res.status(401).json({ message: "Unauthorized" });
