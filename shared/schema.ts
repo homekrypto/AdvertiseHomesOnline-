@@ -35,6 +35,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("free"), // free, registered, premium, agent, agency, expert, admin
   status: varchar("status").notNull().default("active"), // active, trial, cancelled, expired, suspended
+  verified: boolean("verified").default(false), // Email verification status
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   organizationId: varchar("organization_id"),
@@ -44,6 +45,18 @@ export const users = pgTable("users", {
   cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Email verification codes table
+export const verificationCodes = pgTable("verification_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  email: varchar("email").notNull(),
+  code: varchar("code").notNull(),
+  purpose: varchar("purpose").notNull().default("email_verification"), // email_verification, password_reset
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Organizations for agency/expert plans
@@ -387,6 +400,12 @@ export const insertUserActivityLogSchema = createInsertSchema(userActivityLogs).
   createdAt: true,
 });
 
+export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
@@ -414,6 +433,8 @@ export type AnalyticsSnapshot = typeof analyticsSnapshots.$inferSelect;
 export type InsertAnalyticsSnapshot = z.infer<typeof insertAnalyticsSnapshotSchema>;
 export type UserActivityLog = typeof userActivityLogs.$inferSelect;
 export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
+export type VerificationCode = typeof verificationCodes.$inferSelect;
+export type InsertVerificationCode = z.infer<typeof insertVerificationCodeSchema>;
 
 // Feature Flag System - Based on Subscription Tiers
 export interface FeatureFlags {

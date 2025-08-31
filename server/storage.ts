@@ -6,6 +6,7 @@ import {
   favorites,
   savedSearches,
   subscriptionPlans,
+  verificationCodes,
   adminActions,
   leadRoutingConfig,
   leadAssignmentTracking,
@@ -30,6 +31,8 @@ import {
   type SavedSearch,
   type InsertSavedSearch,
   type SubscriptionPlan,
+  type VerificationCode,
+  type InsertVerificationCode,
   type AdminAction,
   type InsertAdminAction,
   type RevenueEvent,
@@ -116,6 +119,13 @@ export interface IStorage {
   updateSubscriptionStatus(userId: string, status: string): Promise<User>;
   handlePaymentFailure(userId: string): Promise<void>;
   enforceListingCaps(): Promise<void>;
+  
+  // Email verification
+  createVerificationCode(verificationCode: InsertVerificationCode): Promise<VerificationCode>;
+  getVerificationCode(userId: string, code: string): Promise<VerificationCode | undefined>;
+  markVerificationCodeUsed(id: string): Promise<void>;
+  verifyUserEmail(userId: string): Promise<User>;
+  createUser(userData: InsertUser): Promise<User>;
 }
 
 export interface PropertyFilters {
@@ -1313,6 +1323,54 @@ export class DatabaseStorage implements IStorage {
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return allActivities;
+  }
+
+  // Email verification methods
+  async createVerificationCode(verificationCodeData: InsertVerificationCode): Promise<VerificationCode> {
+    const [verificationCode] = await db
+      .insert(verificationCodes)
+      .values(verificationCodeData)
+      .returning();
+    return verificationCode;
+  }
+
+  async getVerificationCode(userId: string, code: string): Promise<VerificationCode | undefined> {
+    const [verificationCode] = await db
+      .select()
+      .from(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.userId, userId),
+          eq(verificationCodes.code, code),
+          gte(verificationCodes.expiresAt, new Date()),
+          sql`${verificationCodes.usedAt} IS NULL`
+        )
+      );
+    return verificationCode;
+  }
+
+  async markVerificationCodeUsed(id: string): Promise<void> {
+    await db
+      .update(verificationCodes)
+      .set({ usedAt: new Date() })
+      .where(eq(verificationCodes.id, id));
+  }
+
+  async verifyUserEmail(userId: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ verified: true, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .returning();
+    return user;
   }
 }
 

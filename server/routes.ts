@@ -8,9 +8,17 @@ import {
   ObjectNotFoundError,
 } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
-import { insertPropertySchema, insertLeadSchema, insertFavoriteSchema, insertSavedSearchSchema } from "@shared/schema";
+import { 
+  insertPropertySchema, 
+  insertLeadSchema, 
+  insertFavoriteSchema, 
+  insertSavedSearchSchema,
+  insertVerificationCodeSchema 
+} from "@shared/schema";
 import Stripe from "stripe";
 import { handleStripeWebhook } from "./stripeWebhooks";
+import { emailService } from "./emailService";
+import bcrypt from "bcrypt";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -33,6 +41,317 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ==================== USER REGISTRATION & VERIFICATION FLOW ====================
+  
+  // Step 1: User Registration (Creates user and sends verification email)
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName, tier = 'premium' } = req.body;
+
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists with this email" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      // Create user in production database
+      const userData = {
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        role: tier,
+        status: 'active',
+        verified: false, // Email not verified yet
+      };
+
+      const user = await storage.createUser(userData);
+
+      // Generate verification code and store in production database
+      const verificationCode = emailService.generateVerificationCode();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiration
+
+      await storage.createVerificationCode({
+        userId: user.id,
+        email: user.email,
+        code: verificationCode,
+        purpose: 'email_verification',
+        expiresAt,
+      });
+
+      // Send real verification email
+      const emailSent = await emailService.sendVerificationEmail(email, verificationCode);
+      
+      if (!emailSent) {
+        console.warn('Failed to send verification email, but user was created');
+      }
+
+      res.status(201).json({
+        success: true,
+        message: "User registered successfully. Please check your email for verification code.",
+        userId: user.id,
+        email: user.email,
+        tier: user.role,
+      });
+
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
+  // Step 2: Email Verification (Validates code from production database)
+  app.post('/api/auth/verify-email', async (req, res) => {
+    try {
+      const { userId, code } = req.body;
+
+      if (!userId || !code) {
+        return res.status(400).json({ message: "User ID and verification code are required" });
+      }
+
+      // Validate verification code against production database
+      const verificationRecord = await storage.getVerificationCode(userId, code);
+      
+      if (!verificationRecord) {
+        return res.status(400).json({ 
+          message: "Invalid or expired verification code. Please request a new one." 
+        });
+      }
+
+      // Mark code as used in production database
+      await storage.markVerificationCodeUsed(verificationRecord.id);
+
+      // Mark user as verified in production database
+      const verifiedUser = await storage.verifyUserEmail(userId);
+
+      res.json({
+        success: true,
+        message: "Email verified successfully. You can now proceed to payment.",
+        user: {
+          id: verifiedUser.id,
+          email: verifiedUser.email,
+          verified: verifiedUser.verified,
+          tier: verifiedUser.role,
+        }
+      });
+
+    } catch (error) {
+      console.error("Email verification error:", error);
+      res.status(500).json({ message: "Failed to verify email" });
+    }
+  });
+
+  // Step 3: Get Subscription Plans (Production pricing data)
+  app.get('/api/subscription-plans', async (req, res) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching subscription plans:", error);
+      res.status(500).json({ message: "Failed to fetch subscription plans" });
+    }
+  });
+
+  // Step 4: Create Payment Intent for Selected Tier (Real Stripe integration)
+  app.post('/api/create-subscription', async (req, res) => {
+    try {
+      const { userId, planId } = req.body;
+
+      if (!userId || !planId) {
+        return res.status(400).json({ message: "User ID and plan ID are required" });
+      }
+
+      // Get user from production database
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.verified) {
+        return res.status(400).json({ message: "Email must be verified before subscribing" });
+      }
+
+      // Get plan from production database
+      const plan = await storage.getSubscriptionPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Subscription plan not found" });
+      }
+
+      // Check if user already has a subscription
+      if (user.stripeSubscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        const invoice = await stripe.invoices.retrieve(subscription.latest_invoice as string, {
+          expand: ['payment_intent'],
+        });
+        
+        res.json({
+          subscriptionId: subscription.id,
+          clientSecret: (invoice.payment_intent as any)?.client_secret,
+          existingSubscription: true,
+        });
+        return;
+      }
+
+      // Create Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        metadata: {
+          userId: user.id,
+          planId: plan.id,
+        }
+      });
+
+      // Create Stripe subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: customer.id,
+        items: [{
+          price: plan.stripePriceId,
+        }],
+        payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.payment_intent'],
+      });
+
+      // Update user with Stripe IDs in production database
+      await storage.updateUserStripeInfo(user.id, customer.id, subscription.id);
+
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
+        planName: plan.name,
+        amount: plan.price,
+        currency: 'USD',
+      });
+
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ message: "Failed to create subscription" });
+    }
+  });
+
+  // Step 5: Confirm Payment Success and Redirect
+  app.post('/api/confirm-subscription', async (req, res) => {
+    try {
+      const { userId, subscriptionId } = req.body;
+
+      if (!userId || !subscriptionId) {
+        return res.status(400).json({ message: "User ID and subscription ID are required" });
+      }
+
+      // Get user from production database
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Verify subscription status with Stripe
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      
+      if (subscription.status === 'active') {
+        // Update user role based on subscription
+        await storage.updateUserRole(userId, user.role);
+        
+        // Send welcome email
+        await emailService.sendWelcomeEmail(user.email, user.role);
+
+        // Determine dashboard URL based on tier
+        const dashboardUrl = getDashboardUrlForTier(user.role);
+
+        res.json({
+          success: true,
+          message: "Subscription confirmed successfully!",
+          dashboardUrl,
+          tier: user.role,
+        });
+      } else {
+        res.status(400).json({ 
+          message: "Subscription is not active. Please complete payment.",
+          subscriptionStatus: subscription.status,
+        });
+      }
+
+    } catch (error) {
+      console.error("Error confirming subscription:", error);
+      res.status(500).json({ message: "Failed to confirm subscription" });
+    }
+  });
+
+  // Helper function to determine dashboard URL based on tier
+  function getDashboardUrlForTier(tier: string): string {
+    switch (tier) {
+      case 'premium':
+        return '/dashboard';
+      case 'agent':
+        return '/agent-dashboard';
+      case 'agency':
+        return '/agency-dashboard';
+      case 'expert':
+        return '/expert-dashboard';
+      case 'admin':
+        return '/admin';
+      default:
+        return '/dashboard';
+    }
+  }
+
+  // Resend verification code endpoint
+  app.post('/api/auth/resend-verification', async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.verified) {
+        return res.status(400).json({ message: "Email is already verified" });
+      }
+
+      // Generate new verification code
+      const verificationCode = emailService.generateVerificationCode();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      await storage.createVerificationCode({
+        userId: user.id,
+        email: user.email,
+        code: verificationCode,
+        purpose: 'email_verification',
+        expiresAt,
+      });
+
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail(email, verificationCode);
+      
+      if (!emailSent) {
+        return res.status(500).json({ message: "Failed to send verification email" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification code sent successfully",
+      });
+
+    } catch (error) {
+      console.error("Error resending verification:", error);
+      res.status(500).json({ message: "Failed to resend verification code" });
     }
   });
 
