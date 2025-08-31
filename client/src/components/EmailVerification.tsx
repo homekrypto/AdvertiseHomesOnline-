@@ -201,14 +201,14 @@ export default function EmailVerification({
             <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="text-xs text-blue-700">
               <p className="font-medium">What's next?</p>
-              <p>After verification, you'll proceed to payment for your {tier} subscription.</p>
+              <p>After verification, you'll proceed to payment for your {tier || 'premium'} subscription.</p>
             </div>
           </div>
         </div>
 
         <div className="text-center">
           <Badge variant="outline" className="text-xs" data-testid="selected-tier-badge">
-            Selected: {tier.charAt(0).toUpperCase() + tier.slice(1)} Tier
+            Selected: {tier ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)} Tier` : 'Premium Tier'}
           </Badge>
         </div>
       </CardContent>

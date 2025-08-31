@@ -1,8 +1,23 @@
 import { randomBytes } from "crypto";
+import nodemailer from 'nodemailer';
 
 // Email service for sending verification codes
 export class EmailService {
   private static instance: EmailService;
+  private transporter: nodemailer.Transporter;
+
+  constructor() {
+    // Configure Hostinger SMTP
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp.hostinger.com',
+      port: 465,
+      secure: true, // SSL
+      auth: {
+        user: 'support@advertisehomes.online',
+        pass: process.env.SMTP_PASSWORD
+      }
+    });
+  }
 
   static getInstance(): EmailService {
     if (!EmailService.instance) {
@@ -18,47 +33,63 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, code: string): Promise<boolean> {
     try {
-      // For production deployment, integrate with real email service (SendGrid, AWS SES, etc.)
-      // For now, we'll use a simple console log as placeholder that will be replaced with real service
-      console.log(`📧 PRODUCTION EMAIL SERVICE`);
-      console.log(`To: ${email}`);
-      console.log(`Subject: Verify your AdvertiseHomes.Online account`);
-      console.log(`Verification Code: ${code}`);
-      console.log(`This code expires in 24 hours.`);
+      const mailOptions = {
+        from: 'AdvertiseHomes.Online <support@advertisehomes.online>',
+        to: email,
+        subject: 'Verify your AdvertiseHomes.Online account',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Email Verification</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #1f2937; margin: 0;">AdvertiseHomes.Online</h1>
+                <p style="color: #6b7280; margin: 5px 0 0 0;">Real Estate Platform</p>
+              </div>
+              
+              <div style="background-color: #f8fafc; padding: 30px; border-radius: 8px; text-align: center;">
+                <h2 style="color: #1f2937; margin: 0 0 20px 0;">Welcome to AdvertiseHomes.Online!</h2>
+                <p style="color: #4b5563; margin: 0 0 30px 0; font-size: 16px;">
+                  Please verify your email address using the code below:
+                </p>
+                
+                <div style="background-color: #007bff; color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+                  <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; font-family: monospace;">
+                    ${code}
+                  </div>
+                </div>
+                
+                <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
+                  This code expires in 24 hours.
+                </p>
+              </div>
+              
+              <div style="margin-top: 30px; text-align: center;">
+                <p style="color: #9ca3af; font-size: 14px; margin: 0;">
+                  If you didn't create an account, please ignore this email.
+                </p>
+                <p style="color: #9ca3af; font-size: 14px; margin: 10px 0 0 0;">
+                  © 2025 AdvertiseHomes.Online. All rights reserved.
+                </p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      };
+
+      console.log(`📧 Sending verification email to: ${email}`);
+      await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Verification email sent successfully to: ${email}`);
       
-      // In production, replace this with actual email service:
-      /*
-      const emailResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personalizations: [{
-            to: [{ email }],
-            subject: 'Verify your AdvertiseHomes.Online account'
-          }],
-          from: { email: 'noreply@advertisehomes.online' },
-          content: [{
-            type: 'text/html',
-            value: `
-              <h2>Welcome to AdvertiseHomes.Online!</h2>
-              <p>Please verify your email address using this code:</p>
-              <h1 style="font-size: 32px; letter-spacing: 4px; color: #007bff;">${code}</h1>
-              <p>This code expires in 24 hours.</p>
-              <p>If you didn't create an account, please ignore this email.</p>
-            `
-          }]
-        })
-      });
-      
-      return emailResponse.ok;
-      */
-      
-      return true; // Simulated success for development
+      return true;
     } catch (error) {
-      console.error('Email sending failed:', error);
+      console.error('❌ Email sending failed:', error);
       return false;
     }
   }
@@ -67,36 +98,64 @@ export class EmailService {
     try {
       const tierBenefits = this.getTierBenefits(tierName);
       
-      console.log(`
-===========================================
-🎉 WELCOME EMAIL SENT (Production Ready)
-===========================================
-To: ${email}
-Subject: Welcome to AdvertiseHomes.Online - ${tierName.charAt(0).toUpperCase() + tierName.slice(1)} Plan
+      const mailOptions = {
+        from: 'AdvertiseHomes.Online <support@advertisehomes.online>',
+        to: email,
+        subject: `Welcome to AdvertiseHomes.Online - ${tierName.charAt(0).toUpperCase() + tierName.slice(1)} Plan`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Welcome to AdvertiseHomes.Online</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #1f2937; margin: 0;">🎉 Welcome to AdvertiseHomes.Online!</h1>
+                <p style="color: #6b7280; margin: 5px 0 0 0;">Your ${tierName.charAt(0).toUpperCase() + tierName.slice(1)} Plan is now active</p>
+              </div>
+              
+              <div style="background-color: #f8fafc; padding: 30px; border-radius: 8px;">
+                <h2 style="color: #1f2937; margin: 0 0 20px 0;">Thank you for joining us!</h2>
+                <p style="color: #4b5563; margin: 0 0 20px 0; font-size: 16px;">
+                  Your account is now active and ready to use. Here's what you get with your ${tierName} plan:
+                </p>
+                
+                <div style="background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+                  ${tierBenefits}
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                  <a href="${process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : 'https://advertisehomes.online'}" 
+                     style="background-color: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    Start Using Your Account
+                  </a>
+                </div>
+              </div>
+              
+              <div style="margin-top: 30px; text-align: center;">
+                <p style="color: #9ca3af; font-size: 14px; margin: 0;">
+                  Need help? Reply to this email or contact support@advertisehomes.online
+                </p>
+                <p style="color: #9ca3af; font-size: 14px; margin: 10px 0 0 0;">
+                  © 2025 AdvertiseHomes.Online. All rights reserved.
+                </p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      };
 
-Welcome to AdvertiseHomes.Online!
-
-Your ${tierName.charAt(0).toUpperCase() + tierName.slice(1)} subscription is now active.
-
-Your plan includes:
-${tierBenefits.map(benefit => `• ${benefit}`).join('\n')}
-
-Getting Started:
-1. Complete your profile
-2. Upload your first property listing
-3. Explore our analytics dashboard
-4. Set up lead notifications
-
-Need help? Contact our support team at support@advertisehomes.online
-
-Best regards,
-The AdvertiseHomes.Online Team
-===========================================
-      `);
+      console.log(`📧 Sending welcome email to: ${email}`);
+      await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Welcome email sent successfully to: ${email}`);
 
       return true;
     } catch (error) {
-      console.error('Welcome email failed:', error);
+      console.error('❌ Welcome email failed:', error);
       return false;
     }
   }
@@ -104,7 +163,7 @@ The AdvertiseHomes.Online Team
   /**
    * Gets tier-specific benefits for welcome email
    */
-  private getTierBenefits(tier: string): string[] {
+  private getTierBenefits(tier: string): string {
     const benefits = {
       free: [
         'Access to property search',
@@ -142,7 +201,8 @@ The AdvertiseHomes.Online Team
       ],
     };
 
-    return benefits[tier as keyof typeof benefits] || benefits.premium;
+    const selectedBenefits = benefits[tier as keyof typeof benefits] || benefits.premium;
+    return selectedBenefits.map(benefit => `<div style="margin: 8px 0; color: #4b5563;">✓ ${benefit}</div>`).join('');
   }
 }
 
