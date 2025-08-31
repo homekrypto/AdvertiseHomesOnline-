@@ -41,11 +41,10 @@ export function BulkPropertyImport({ userRole, onComplete }: BulkPropertyImportP
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Sample CSV template
+  // CSV template structure - replace with your real property data
   const sampleCsvData = `title,description,price,propertyType,bedrooms,bathrooms,sqft,address,city,state,zipCode
-"Beautiful 3BR Home","Stunning home with modern updates",450000,house,3,2,2500,"123 Main St","San Francisco",CA,94102
-"Downtown Condo","Luxury condo in prime location",680000,condo,2,2,1200,"456 Market St","San Francisco",CA,94105
-"Family Townhouse","Spacious townhouse near schools",575000,townhouse,4,3,2800,"789 Oak Ave","Oakland",CA,94610`;
+"[Enter your property title]","[Enter detailed property description]",450000,house,3,2,2500,"[Enter street address]","[City]","[State]","[ZIP Code]"
+"[Enter another property title]","[Enter property description]",680000,condo,2,2,1200,"[Enter street address]","[City]","[State]","[ZIP Code]"`;
 
   const bulkImportMutation = useMutation({
     mutationFn: async (properties: any[]) => {

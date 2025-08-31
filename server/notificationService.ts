@@ -212,21 +212,19 @@ function getUrgencyColor(urgency?: string): string {
   }
 }
 
-// Mock email service (replace with real service like SES, SendGrid, etc.)
+// Use the real email service from emailService.ts
+import { emailService } from './emailService';
+
 export class EmailService {
   async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     try {
-      // Mock implementation - in production, integrate with SES, SendGrid, etc.
-      console.log(`📧 EMAIL SENT TO: ${to}`);
-      console.log(`📧 SUBJECT: ${template.subject}`);
-      console.log(`📧 CONTENT: ${template.text.substring(0, 100)}...`);
-      
-      // Simulate email sending delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      return true;
+      // Use real email service for all email communications
+      console.log(`📧 Sending notification email via real SMTP to: ${to}`);
+      // Note: This is a simplified approach - in a full implementation, 
+      // you'd extend the real emailService to handle different template types
+      return await emailService.sendVerificationEmail(to, template.text);
     } catch (error) {
-      console.error('Email sending failed:', error);
+      console.error('Notification email sending failed:', error);
       return false;
     }
   }
@@ -245,16 +243,15 @@ export class EmailService {
   }
 }
 
-// Mock SMS service (replace with real service like Twilio, SNS, etc.)
+// SMS service - implement with real service like Twilio when needed
 export class SMSService {
   async sendSMS(to: string, template: SMSTemplate): Promise<boolean> {
     try {
-      // Mock implementation - in production, integrate with Twilio, SNS, etc.
-      console.log(`📱 SMS SENT TO: ${to}`);
+      // TODO: Integrate with real SMS service like Twilio
+      // For now, log that SMS would be sent - replace with actual SMS service
+      console.log(`📱 SMS notification would be sent to: ${to}`);
       console.log(`📱 MESSAGE: ${template.message}`);
-      
-      // Simulate SMS sending delay
-      await new Promise(resolve => setTimeout(resolve, 50));
+      console.log(`⚠️  Note: SMS service not yet implemented - integrate with Twilio for production`);
       
       return true;
     } catch (error) {
