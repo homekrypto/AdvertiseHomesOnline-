@@ -3,6 +3,7 @@ import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
 import Home from "./pages/Home.tsx";
 import Properties from "./pages/Properties.tsx";
+import Subscribe from "./pages/Subscribe.tsx";
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
+        <Route path="/subscribe" component={Subscribe} />
         <Route path="/properties" component={Properties} />
         <Route path="/" component={Home} />
       </Switch>
