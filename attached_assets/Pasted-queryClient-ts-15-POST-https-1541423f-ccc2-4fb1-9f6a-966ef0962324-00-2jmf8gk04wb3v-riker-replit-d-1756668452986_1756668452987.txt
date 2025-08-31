@@ -1,0 +1,53 @@
+queryClient.ts:15  POST https://1541423f-ccc2-4fb1-9f6a-966ef0962324-00-2jmf8gk04wb3v.riker.replit.dev/api/auth/resend-verification 400 (Bad Request)
+apiRequest @ queryClient.ts:15
+mutationFn @ EmailVerification.tsx:58
+fn @ @tanstack_react-query.js?v=18e20ae2:1189
+run @ @tanstack_react-query.js?v=18e20ae2:494
+start @ @tanstack_react-query.js?v=18e20ae2:536
+execute @ @tanstack_react-query.js?v=18e20ae2:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=18e20ae2:2630
+(anonymous) @ @tanstack_react-query.js?v=18e20ae2:3295
+handleResendCode @ EmailVerification.tsx:90
+callCallback2 @ chunk-RPCDYKBN.js?v=18e20ae2:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=18e20ae2:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=18e20ae2:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=18e20ae2:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=18e20ae2:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=18e20ae2:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=18e20ae2:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=18e20ae2:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=18e20ae2:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=18e20ae2:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=18e20ae2:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=18e20ae2:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=18e20ae2:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=18e20ae2:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=18e20ae2:5449Understand this error
+queryClient.ts:15  POST https://1541423f-ccc2-4fb1-9f6a-966ef0962324-00-2jmf8gk04wb3v.riker.replit.dev/api/auth/verify-email 400 (Bad Request)
+apiRequest @ queryClient.ts:15
+mutationFn @ EmailVerification.tsx:31
+fn @ @tanstack_react-query.js?v=18e20ae2:1189
+run @ @tanstack_react-query.js?v=18e20ae2:494
+start @ @tanstack_react-query.js?v=18e20ae2:536
+execute @ @tanstack_react-query.js?v=18e20ae2:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=18e20ae2:2630
+(anonymous) @ @tanstack_react-query.js?v=18e20ae2:3295
+handleVerify @ EmailVerification.tsx:86
+callCallback2 @ chunk-RPCDYKBN.js?v=18e20ae2:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=18e20ae2:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=18e20ae2:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=18e20ae2:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=18e20ae2:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=18e20ae2:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=18e20ae2:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=18e20ae2:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=18e20ae2:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=18e20ae2:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=18e20ae2:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=18e20ae2:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=18e20ae2:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=18e20ae2:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=18e20ae2:5449Understand this error
+queryClient.ts:15  POST https://1541423f-ccc2-4fb1-9f6a-966ef0962324-00-2jmf8gk04wb3v.riker.replit.dev/api/auth/verify-email 400 (Bad Request)
