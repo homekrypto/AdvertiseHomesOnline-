@@ -31,13 +31,16 @@ else
 fi
 
 # Verify backup files exist
-if [[ -f "advertisehomes_backup.dump" ]]; then
-    echo "✓ Database backup file found"
+if [[ -f "database_backup_20250831_210211.dump" ]]; then
+    echo "✓ Latest database backup file found (database_backup_20250831_210211.dump)"
+elif [[ -f "advertisehomes_backup.dump" ]]; then
+    echo "✓ Database backup file found (advertisehomes_backup.dump)"
 else
     echo "⚠ Database backup file not found - creating it now..."
     if [[ -n "$DATABASE_URL" ]]; then
-        pg_dump $DATABASE_URL --verbose --no-owner --no-privileges --format=custom --file=advertisehomes_backup.dump
-        echo "✓ Database backup created"
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        pg_dump $DATABASE_URL --verbose --no-owner --no-privileges --format=custom --file=database_backup_${TIMESTAMP}.dump
+        echo "✓ Database backup created: database_backup_${TIMESTAMP}.dump"
     else
         echo "❌ DATABASE_URL not set - cannot create backup"
         exit 1

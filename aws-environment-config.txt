@@ -1,0 +1,164 @@
+# AWS Environment Configuration - Account 312471576053
+# AdvertiseHomes.Online Production Settings
+
+## Database Configuration (Post-Migration)
+# Replace [PASSWORD] and [ENDPOINT] with actual values from migration
+DATABASE_URL=postgresql://postgres:[PASSWORD]@[ENDPOINT].c-2.us-east-1.rds.amazonaws.com:5432/advertisehomes
+
+## Stripe Integration (Preserve Existing)
+# Keep your existing Stripe keys - these should NOT change
+STRIPE_SECRET_KEY=sk_live_[your-stripe-live-key]
+STRIPE_WEBHOOK_SECRET=whsec_[your-webhook-secret]
+VITE_STRIPE_PUBLIC_KEY=pk_live_[your-stripe-public-key]
+
+## Email Service Configuration (Preserve Existing)
+# These remain the same - working Hostinger SMTP setup
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_USER=support@advertisehomes.online
+SMTP_PASSWORD=[your-current-smtp-password]
+
+## Application Settings
+NODE_ENV=production
+PORT=5000
+
+## Session Configuration
+SESSION_SECRET=[generate-new-secure-random-string]
+
+## AWS Specific Settings (New)
+AWS_REGION=us-east-1
+AWS_ACCOUNT_ID=312471576053
+
+## Security Headers (Production)
+FORCE_HTTPS=true
+SECURE_COOKIES=true
+
+## Replit Integration (Keep if deploying to Replit)
+REPLIT_DOMAINS=https://[your-repl-name].[username].repl.co
+ISSUER_URL=https://auth.replit.com
+
+---
+
+## Environment Setup Commands
+
+### For Replit Deployment (Recommended)
+1. Update only DATABASE_URL in Replit Secrets
+2. Keep all other secrets unchanged
+3. App restarts automatically
+
+### For Full AWS EC2 Deployment
+1. Create .env file with above variables
+2. Install Node.js 20.x
+3. Run: npm install && npm run build && npm start
+
+### For AWS Lambda Deployment
+1. Use serverless framework
+2. Configure environment variables in serverless.yml
+3. Deploy with: serverless deploy
+
+---
+
+## Security Notes
+
+### Database Security
+- RDS instance configured with security groups
+- Access restricted to application servers only
+- SSL/TLS encryption enabled
+- Automated backups configured
+
+### Application Security
+- HTTPS enforced in production
+- Secure cookies for sessions
+- CSRF protection enabled
+- Input validation on all endpoints
+
+### API Keys Security
+- All secrets stored in secure environment variables
+- No hardcoded credentials in code
+- Stripe webhook signature verification
+- SMTP credentials encrypted
+
+---
+
+## Monitoring & Logging
+
+### AWS CloudWatch
+- Database performance metrics
+- Application logs
+- Error alerting
+- Performance dashboards
+
+### Application Monitoring
+- Response time tracking
+- Error rate monitoring
+- User session analytics
+- Stripe webhook monitoring
+
+---
+
+## Backup Strategy
+
+### Database Backups
+- AWS RDS automated backups (7 days)
+- Point-in-time recovery enabled
+- Weekly full dumps to S3
+- Monthly archive to Glacier
+
+### Application Backups
+- Code repository on GitHub
+- Environment configuration documented
+- Regular deployment snapshots
+- Disaster recovery procedures
+
+---
+
+## Scaling Configuration
+
+### Database Scaling
+- Start: db.t3.micro (1 vCPU, 1GB RAM)
+- Scale to: db.t3.small (2 vCPU, 2GB RAM)
+- Multi-AZ: For high availability
+- Read replicas: For read scaling
+
+### Application Scaling
+- Start: Single instance
+- Scale to: Load balancer + multiple instances
+- Auto Scaling Group: Based on CPU/memory
+- CDN: CloudFront for static assets
+
+---
+
+## Cost Optimization
+
+### Current Setup (Monthly)
+- RDS db.t3.micro: ~$15-20
+- Storage 20GB: ~$2-3
+- Data transfer: ~$1-5
+- Total: ~$18-28/month
+
+### Optimization Tips
+- Use Reserved Instances for 40% savings
+- Monitor unused resources
+- Optimize query performance
+- Implement caching layer
+
+---
+
+## Migration Rollback Plan
+
+### Emergency Rollback
+1. Change DATABASE_URL back to original Neon URL
+2. App restarts automatically
+3. Verify functionality
+4. Investigate AWS issues
+
+### Rollback Commands
+```bash
+# In Replit Secrets, revert DATABASE_URL to:
+DATABASE_URL=postgresql://neondb_owner:npg_QDeaHUIk4zx6@ep-frosty-salad-adnbo7om-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```
+
+### Support Contacts
+- AWS Support: Account 312471576053
+- Replit Support: For platform issues
+- Stripe Support: For payment issues

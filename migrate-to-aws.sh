@@ -12,7 +12,7 @@ DB_INSTANCE_ID="advertisehomes-production"
 DB_NAME="advertisehomes"
 DB_USERNAME="postgres"
 AWS_REGION="us-east-1"
-BACKUP_FILE="advertisehomes_backup.dump"
+BACKUP_FILE="database_backup_20250831_210211.dump"
 SCHEMA_FILE="schema_only.sql"
 
 # Colors for output
