@@ -137,23 +137,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const user = await storage.createUser(userData);
+      console.log(`✅ User created successfully: ${user.id} (${user.email})`);
 
       // Generate verification code and store in production database
+      console.log(`🔄 Starting verification code creation for user: ${user.id} (${user.email})`);
       const verificationCode = emailService.generateVerificationCode();
+      console.log(`🎲 Generated verification code: ${verificationCode}`);
+      
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiration
+      console.log(`⏰ Verification code expires at: ${expiresAt}`);
 
       if (!user.email) {
+        console.error('❌ User email is missing');
         return res.status(400).json({ message: "User email is required" });
       }
 
-      await storage.createVerificationCode({
-        userId: user.id,
-        email: user.email,
-        code: verificationCode,
-        purpose: 'email_verification',
-        expiresAt,
-      });
+      console.log(`💾 Attempting to create verification code in database...`);
+      try {
+        await storage.createVerificationCode({
+          userId: user.id,
+          email: user.email,
+          code: verificationCode,
+          purpose: 'email_verification',
+          expiresAt,
+        });
+        console.log(`✅ Verification code created successfully in database`);
+      } catch (dbError) {
+        console.error('❌ Database error creating verification code:', dbError);
+        throw dbError; // Re-throw to be caught by outer try-catch
+      }
 
       // Send real verification email
       console.log(`🔄 Attempting to send verification email to: ${email} with code: ${verificationCode}`);

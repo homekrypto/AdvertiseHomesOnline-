@@ -103,73 +103,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // User registration endpoint
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const { email, firstName, lastName, password, role = "free" } = req.body;
-      
-      // Validate required fields
-      if (!email || !firstName || !lastName || !password) {
-        return res.status(400).json({ error: "All fields are required" });
-      }
-      
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({ error: "Please enter a valid email address" });
-      }
-      
-      // Validate password strength
-      if (password.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters long" });
-      }
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(400).json({ error: "An account with this email already exists" });
-      }
-      
-      // Create new user with real data
-      const newUser = await storage.upsertUser({
-        email: email.toLowerCase().trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(), 
-        password: password, // In production, hash this with bcrypt
-        role: role || "free",
-        status: "active",
-        profileImageUrl: null,
-        featureFlags: {},
-        organizationId: null,
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
-      });
-      
-      console.log(`New user registered: ${newUser.email} (Role: ${newUser.role})`);
-      
-      // Auto-login after successful registration
-      req.login({ 
-        claims: { sub: newUser.id }, 
-        dbUser: newUser 
-      }, (err: any) => {
-        if (err) {
-          console.error('Auto-login after registration error:', err);
-          return res.status(500).json({ error: "Registration succeeded but auto-login failed" });
-        }
-        
-        // Remove password from response
-        const { password: _, ...userWithoutPassword } = newUser;
-        res.status(201).json({ 
-          message: "Account created successfully", 
-          user: userWithoutPassword,
-          redirectUrl: getRedirectUrl(newUser.role)
-        });
-      });
-    } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({ error: "Registration failed. Please try again." });
-    }
-  });
+  // Registration endpoint moved to routes.ts for proper email verification workflow
 
   // User login endpoint
   app.post("/api/auth/login", async (req, res) => {
