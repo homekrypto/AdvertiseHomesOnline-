@@ -7,6 +7,15 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    // Diagnostic logging for SMTP configuration
+    console.log('🔧 SMTP Configuration Diagnosis:');
+    console.log('  Host:', process.env.SMTP_HOST || 'smtp.hostinger.com');
+    console.log('  Port:', process.env.SMTP_PORT || '465');
+    console.log('  User:', process.env.SMTP_USER || 'support@advertisehomes.online');
+    console.log('  Password provided:', !!process.env.SMTP_PASSWORD);
+    console.log('  Password length:', process.env.SMTP_PASSWORD?.length || 0);
+    console.log('  Password has special chars:', /[!@#$%^&*(),.?":{}|<>]/.test(process.env.SMTP_PASSWORD || ''));
+    
     // Configure Hostinger SMTP using environment variables
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.hostinger.com',
@@ -15,8 +24,16 @@ export class EmailService {
       auth: {
         user: process.env.SMTP_USER || 'support@advertisehomes.online',
         pass: process.env.SMTP_PASSWORD
-      }
+      },
+      debug: true, // Enable detailed debugging
+      logger: true, // Log SMTP traffic
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000, // 30 seconds
+      socketTimeout: 60000 // 60 seconds
     });
+    
+    // Test connection on startup
+    this.verifyConnection();
   }
 
   static getInstance(): EmailService {
@@ -24,6 +41,68 @@ export class EmailService {
       EmailService.instance = new EmailService();
     }
     return EmailService.instance;
+  }
+
+  /**
+   * Force refresh the email service instance with new configuration
+   */
+  static refreshInstance(): EmailService {
+    if (EmailService.instance?.transporter) {
+      console.log('🔄 Closing existing SMTP connection...');
+      EmailService.instance.transporter.close();
+    }
+    EmailService.instance = new EmailService();
+    return EmailService.instance;
+  }
+
+  /**
+   * Verify SMTP connection with detailed diagnostics
+   */
+  async verifyConnection(): Promise<boolean> {
+    try {
+      console.log('🔍 Testing SMTP connection...');
+      await this.transporter.verify();
+      console.log('✅ SMTP connection verified successfully');
+      return true;
+    } catch (error: any) {
+      console.error('❌ SMTP connection verification failed:');
+      console.error('  Error code:', error.code);
+      console.error('  Error message:', error.message);
+      console.error('  Response code:', error.responseCode);
+      console.error('  Response:', error.response);
+      console.error('  Command:', error.command);
+      return false;
+    }
+  }
+
+  /**
+   * Create alternative SMTP configuration for testing
+   */
+  createAlternativeTransporter(config: {
+    port?: number;
+    secure?: boolean;
+    passwordEscaped?: boolean;
+  }): nodemailer.Transporter {
+    const password = config.passwordEscaped 
+      ? process.env.SMTP_PASSWORD?.replace(/\$/g, '\\$')
+      : process.env.SMTP_PASSWORD;
+      
+    console.log(`🧪 Creating alternative transporter: port=${config.port}, secure=${config.secure}, escaped=${config.passwordEscaped}`);
+    
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+      port: config.port || 465,
+      secure: config.secure !== undefined ? config.secure : true,
+      auth: {
+        user: process.env.SMTP_USER || 'support@advertisehomes.online',
+        pass: password
+      },
+      debug: true,
+      logger: true,
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000
+    });
   }
 
   generateVerificationCode(): string {

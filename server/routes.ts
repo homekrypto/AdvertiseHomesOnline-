@@ -102,9 +102,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== ADMIN SMTP CONFIGURATION ====================
+  // ==================== ADMIN SMTP DIAGNOSIS & CONFIGURATION ====================
   
-  // Test SMTP connection endpoint for admin
+  // Comprehensive SMTP diagnostics endpoint
+  app.get('/api/admin/smtp-diagnosis', async (req, res) => {
+    try {
+      console.log('🔍 Starting SMTP diagnosis...');
+      
+      const diagnosis = {
+        environment: {
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          user: process.env.SMTP_USER,
+          passwordProvided: !!process.env.SMTP_PASSWORD,
+          passwordLength: process.env.SMTP_PASSWORD?.length || 0,
+          hasSpecialChars: /[!@#$%^&*(),.?":{}|<>]/.test(process.env.SMTP_PASSWORD || '')
+        },
+        connectionTest: null,
+        alternatives: []
+      };
+      
+      // Test current configuration
+      try {
+        const connected = await emailService.verifyConnection();
+        diagnosis.connectionTest = { success: connected, error: null };
+      } catch (error: any) {
+        diagnosis.connectionTest = { success: false, error: error.message };
+      }
+      
+      res.json(diagnosis);
+    } catch (error: any) {
+      console.error('❌ SMTP diagnosis error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Test alternative SMTP configurations
+  app.post('/api/admin/test-smtp-alternatives', async (req, res) => {
+    try {
+      console.log('🧪 Testing alternative SMTP configurations...');
+      const results = [];
+      
+      // Test configurations to try
+      const configs = [
+        { name: 'Current (465/SSL)', port: 465, secure: true, passwordEscaped: false },
+        { name: 'STARTTLS (587)', port: 587, secure: false, passwordEscaped: false },
+        { name: 'Escaped Password (465/SSL)', port: 465, secure: true, passwordEscaped: true },
+        { name: 'Escaped Password (587/STARTTLS)', port: 587, secure: false, passwordEscaped: true }
+      ];
+      
+      for (const config of configs) {
+        try {
+          console.log(`🔍 Testing config: ${config.name}`);
+          const transporter = emailService.createAlternativeTransporter(config);
+          await transporter.verify();
+          results.push({ ...config, success: true, error: null });
+          console.log(`✅ ${config.name} - SUCCESS`);
+          transporter.close();
+        } catch (error: any) {
+          results.push({ ...config, success: false, error: error.message });
+          console.log(`❌ ${config.name} - FAILED: ${error.message}`);
+        }
+      }
+      
+      res.json({ results });
+    } catch (error: any) {
+      console.error('❌ Alternative SMTP test error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Test actual email delivery
+  app.post('/api/admin/test-email-delivery', async (req, res) => {
+    try {
+      const { email, config } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: 'Email address required' });
+      }
+      
+      console.log(`📧 Testing email delivery to: ${email}`);
+      
+      let transporter;
+      if (config) {
+        // Use alternative configuration
+        transporter = emailService.createAlternativeTransporter(config);
+      } else {
+        // Use current configuration
+        transporter = emailService['transporter'];
+      }
+      
+      const testCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const mailOptions = {
+        from: 'AdvertiseHomes.Online <support@advertisehomes.online>',
+        to: email,
+        subject: 'SMTP Test - AdvertiseHomes.Online',
+        html: `
+          <div style="padding: 20px; font-family: Arial, sans-serif;">
+            <h2 style="color: #1f2937;">SMTP Test Successful!</h2>
+            <p>This is a test email from AdvertiseHomes.Online SMTP configuration.</p>
+            <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <strong>Test Code:</strong> <span style="font-family: monospace; font-size: 18px;">${testCode}</span>
+            </div>
+            <p><small>Sent at: ${new Date().toISOString()}</small></p>
+          </div>
+        `
+      };
+      
+      await transporter.sendMail(mailOptions);
+      
+      if (config) {
+        transporter.close();
+      }
+      
+      console.log(`✅ Test email sent successfully to: ${email}`);
+      res.json({ 
+        success: true, 
+        message: 'Test email sent successfully',
+        testCode,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Email delivery test failed:', error);
+      res.status(400).json({ 
+        success: false,
+        message: error.message,
+        code: error.code,
+        responseCode: error.responseCode
+      });
+    }
+  });
+
+  // Legacy test endpoint (keeping for compatibility)
   app.post('/api/admin/test-smtp', async (req, res) => {
     try {
       const { password } = req.body;
@@ -113,50 +244,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Password is required" });
       }
 
-      // Test SMTP connection with the provided password
-      console.log('🔧 Testing SMTP connection with new password...');
+      console.log('🔧 Testing SMTP connection with provided password...');
       
       // Temporarily update the email service password for testing
       const originalPassword = process.env.SMTP_PASSWORD;
       process.env.SMTP_PASSWORD = password;
       
       try {
-        // Send a test email
-        const testEmailSent = await emailService.sendVerificationEmail(
-          'support@advertisehomes.online', 
-          '123456'
-        );
+        // Refresh email service with new password
+        const refreshedService = EmailService.refreshInstance();
+        const connected = await refreshedService.verifyConnection();
         
-        if (testEmailSent) {
+        if (connected) {
           console.log('✅ SMTP test successful - password is correct');
-          console.log('💾 Password permanently updated in environment');
           res.json({ 
             success: true, 
-            message: "SMTP connection successful! Email service is now working.",
-            testCode: verificationCode
+            message: "SMTP connection successful! Email service is now working."
           });
         } else {
-          console.log('❌ SMTP test failed - unable to send email');
-          process.env.SMTP_PASSWORD = originalPassword; // Restore original
+          console.log('❌ SMTP test failed - unable to connect');
+          process.env.SMTP_PASSWORD = originalPassword;
+          EmailService.refreshInstance(); // Restore original
           res.status(400).json({ 
             message: "SMTP connection failed. Please check your password." 
           });
         }
       } catch (smtpError: any) {
         console.error('❌ SMTP test error:', smtpError);
-        process.env.SMTP_PASSWORD = originalPassword; // Restore original
+        process.env.SMTP_PASSWORD = originalPassword;
+        EmailService.refreshInstance(); // Restore original
         
-        if (smtpError.code === 'EAUTH') {
-          res.status(400).json({ 
-            message: "Authentication failed. Please check your password." 
-          });
-        } else {
-          res.status(400).json({ 
-            message: `SMTP error: ${smtpError.message}` 
-          });
-        }
+        res.status(400).json({ 
+          message: `Authentication failed: ${smtpError.message}`,
+          code: smtpError.code,
+          responseCode: smtpError.responseCode
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error testing SMTP:", error);
       res.status(500).json({ message: "Failed to test SMTP connection" });
     }

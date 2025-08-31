@@ -1,0 +1,194 @@
+
+
+# PROMPT: RESOLVE SMTP AUTHENTICATION ISSUE FOR EMAIL DELIVERY
+
+## OBJECTIVE
+Fix the SMTP authentication issue (535 error) preventing email delivery in the verification system. While the core verification system is operational, emails are not being delivered due to authentication failure with Hostinger SMTP. Implement a solution to ensure emails are actually sent and received.
+
+## CURRENT STATUS
+- ✅ Verification system working (code generation, storage, validation)
+- ❌ SMTP email delivery failing with 535 authentication error
+- Password "Szpitalna32$" added to Replit secrets but still failing
+- Potential causes: special characters in password, Hostinger settings, or caching
+
+## IMPLEMENTATION REQUIREMENTS
+
+### 1. SMTP Authentication Diagnosis
+**Investigate 535 Error:**
+- Analyze SMTP authentication logs to identify exact failure point
+- Test current SMTP configuration with debugging enabled
+- Verify environment variables are properly loaded (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
+- Check if special characters in password ("$") are causing parsing issues
+
+**Deliverables:**
+- Detailed SMTP error logs
+- Environment variable verification results
+- Authentication flow analysis
+- Password handling assessment
+
+### 2. Hostinger Email Configuration
+**Verify Hostinger Settings:**
+- Check if 2-factor authentication is enabled on the email account
+- Confirm IMAP/SMTP access is enabled in Hostinger control panel
+- Test if app-specific password is required instead of regular password
+- Verify Hostinger's SMTP requirements and restrictions
+
+**Deliverables:**
+- Hostinger email settings verification
+- 2FA status confirmation
+- SMTP access permission check
+- App-specific password test results
+
+### 3. Alternative SMTP Configuration
+**Test Different Configurations:**
+- Try alternative port (587 with STARTTLS instead of 465 with SSL)
+- Test with different authentication methods
+- Implement proper escaping for special characters in password
+- Test with a temporary password without special characters
+
+**Deliverables:**
+- Alternative configuration test results
+- Port comparison analysis
+- Password character handling solution
+- Working configuration parameters
+
+### 4. Email Service Instance Caching
+**Address Potential Caching Issues:**
+- Refresh or restart the email service instance
+- Clear any cached credentials or connections
+- Implement proper connection pooling and reset
+- Add configuration refresh mechanism
+
+**Deliverables:**
+- Service restart procedure
+- Cache clearing implementation
+- Connection pool configuration
+- Refresh mechanism documentation
+
+### 5. Comprehensive Email Testing
+**End-to-End Email Delivery Test:**
+- Send test emails to multiple providers (Gmail, Outlook, Yahoo)
+- Verify email delivery and inbox placement
+- Test spam filtering and deliverability
+- Confirm email content and verification code inclusion
+
+**Deliverables:**
+- Test email results across providers
+- Spam filter test results
+- Email content verification
+- Delivery time analysis
+
+## TECHNICAL IMPLEMENTATION
+
+### SMTP Configuration Testing
+```javascript
+// Test current configuration
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: true, // SSL
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  },
+  debug: true, // Enable debugging
+  logger: true // Log to console
+});
+
+// Test alternative configuration
+const transporterAlt = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: 587, // Alternative port
+  secure: false, // STARTTLS
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS.replace(/\$/g, '\\$') // Escape special characters
+  }
+});
+```
+
+### Password Handling Solution
+```javascript
+// Properly escape special characters in password
+const smtpPassword = process.env.SMTP_PASS
+  .replace(/\$/g, '\\$') // Escape dollar signs
+  .replace(/"/g, '\\"'); // Escape quotes if needed
+
+// Or use app-specific password from Hostinger
+const appPassword = process.env.HOSTINGER_APP_PASSWORD;
+```
+
+### Service Refresh Implementation
+```javascript
+// Clear any cached connections
+if (transporter) {
+  transporter.close(); // Close existing connection
+}
+
+// Create new transporter with updated configuration
+const transporter = nodemailer.createTransport(updatedConfig);
+```
+
+## TESTING REQUIREMENTS
+Provide detailed testing instructions for:
+1. **SMTP Authentication:**
+   - Test with current password and configuration
+   - Test with escaped special characters
+   - Test with app-specific password if available
+
+2. **Alternative Configurations:**
+   - Test port 587 with STARTTLS
+   - Test different authentication methods
+   - Test with temporary password without special characters
+
+3. **Email Delivery:**
+   - Send test emails to multiple providers
+   - Verify inbox placement and spam filtering
+   - Check email content and verification code
+
+4. **Verification Flow:**
+   - Complete registration with email verification
+   - Test resend verification functionality
+   - Confirm user status updates after verification
+
+## DELIVERABLES
+1. **SMTP Authentication Fix:**
+   - Working SMTP configuration
+   - Password handling solution
+   - Authentication logs showing successful connection
+
+2. **Email Delivery Verification:**
+   - Test emails received in inbox
+   - Verification code properly included
+   - Delivery time within acceptable limits
+
+3. **Configuration Documentation:**
+   - Final SMTP settings
+   - Password handling procedure
+   - Service refresh process
+
+4. **Testing Results:**
+   - Comprehensive test report
+   - Email deliverability metrics
+   - Verification flow confirmation
+
+## PRODUCTION REQUIREMENTS
+- **Live Data Only:** All tests must use production SMTP settings
+- **Real Email Testing:** Test with actual email delivery to real addresses
+- **Production Verification:** Provide evidence from production email system
+- **No Mock Data:** Use real SMTP credentials and email addresses
+
+## IMPLEMENTATION PRIORITY
+1. **Critical (Immediate):** SMTP authentication diagnosis and fix
+2. **High (2-4 hours):** Alternative configuration testing
+3. **Medium (4-6 hours):** Email delivery verification
+4. **Low (6-8 hours):** Comprehensive testing and documentation
+
+## SUCCESS CRITERIA
+- SMTP authentication successful (no 535 error)
+- Verification emails delivered to inbox
+- Verification codes properly included in emails
+- Complete registration flow working with email verification
+- Resend verification functionality operational
+
+Please confirm receipt and provide a detailed plan for resolving the SMTP authentication issue, including specific tests you'll perform and solutions you'll implement.
