@@ -235,6 +235,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force refresh email service with current environment
+  app.post('/api/admin/refresh-email-service', async (req, res) => {
+    try {
+      console.log('🔄 Force refreshing EmailService with current environment...');
+      console.log('Current SMTP_PASSWORD length:', process.env.SMTP_PASSWORD?.length);
+      console.log('Current SMTP_PASSWORD first 3 chars:', process.env.SMTP_PASSWORD?.substring(0, 3));
+      
+      // Force refresh the email service
+      const refreshedService = EmailService.refreshInstance();
+      const connected = await refreshedService.verifyConnection();
+      
+      res.json({ 
+        success: connected,
+        message: connected ? 'Email service refreshed successfully' : 'Email service refresh failed',
+        passwordLength: process.env.SMTP_PASSWORD?.length,
+        passwordStartsWith: process.env.SMTP_PASSWORD?.substring(0, 3)
+      });
+    } catch (error: any) {
+      console.error('❌ Email service refresh error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Legacy test endpoint (keeping for compatibility)
   app.post('/api/admin/test-smtp', async (req, res) => {
     try {
@@ -245,6 +268,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('🔧 Testing SMTP connection with provided password...');
+      console.log('Provided password length:', password?.length);
+      console.log('Provided password first 3 chars:', password?.substring(0, 3));
       
       // Temporarily update the email service password for testing
       const originalPassword = process.env.SMTP_PASSWORD;
