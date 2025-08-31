@@ -1,0 +1,54 @@
+Provide a detailed description of the current implementation of the tier/pricing/role system in the production platform. Focus exclusively on how the system works RIGHT NOW - no suggestions for improvements, no future plans, only existing functionality.
+
+REQUIRED DESCRIPTION SECTIONS
+1. CURRENT TIER STRUCTURE
+List all existing subscription tiers with exact names as they appear in the system
+Describe how tiers are represented in the database (table names, field names)
+Explain the relationship between user roles and subscription tiers
+Detail how a user's tier is determined and stored
+2. PRICING IMPLEMENTATION
+Document the exact pricing amounts for each tier as currently implemented
+Describe how pricing is stored (database tables, hardcoded values, etc.)
+Explain the billing cycle structure (monthly, annual, etc.)
+Detail how prices are displayed to users during registration/upgrade
+3. PERMISSION SYSTEM
+List all permissions currently associated with each tier
+Explain how permissions are enforced in the system
+Describe how the system determines what features a user can access
+Detail any role-based restrictions in the UI or API endpoints
+4. FEATURE LIMITATIONS
+Document all current usage limits per tier (properties, leads, etc.)
+Explain how these limits are enforced in the system
+Describe what happens when users reach their limits
+Detail any tier-specific features or capabilities
+5. SUBSCRIPTION LIFECYCLE
+Describe the complete subscription flow from registration to cancellation
+Explain how subscription status changes are handled
+Detail how upgrades/downgrades currently work
+Document any automated processes related to subscriptions
+6. DASHBOARD DIFFERENTIATION
+Describe how the dashboard experience differs between tiers
+List all UI components that change based on user tier
+Explain how the system determines what to show each user
+Detail any tier-specific navigation or functionality
+7. DATA INTEGRATION
+Document all database tables involved in the tier system
+Explain how tier data flows through the system
+Describe any external service integrations (Stripe, etc.)
+Detail how tier information is accessed across frontend/backend
+8. CURRENT LIMITATIONS
+List all known limitations or gaps in the current implementation
+Describe any hardcoded elements that should be database-driven
+Document any missing functionality related to tiers
+Explain any workarounds currently in use
+DELIVERY REQUIREMENTS
+Format: Plain English description - no code snippets
+Scope: Only describe what currently exists - no suggestions
+Detail: Include all relevant aspects of the tier system
+Accuracy: Describe the actual implementation, not intended behavior
+Completeness: Cover all points in the sections above
+SUBMISSION
+Respond with a comprehensive description that fully documents the current state of the tier system as implemented in the production platform. Focus on providing complete information about how the system works today.
+
+
+
